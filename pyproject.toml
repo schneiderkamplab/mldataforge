@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mldataforge"
+version = "0.0.1"
+authors = [
+  { name = "Peter Schneider-Kamp" }
+]
+
+description = "swiss army knife of scripts for transforming and processing datasets for machine learning."
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    'click',
+    'datasets',
+    'mltiming',
+    'pygz'
+]
+
+[project.urls]
+"Homepage" = "https://github.com/schneiderkamplab/mldataforge"
+"Bug Tracker" = "https://github.com/schneiderkamplab/mldataforge/issues"
+
+[tool.hatch.build]
+include = [
+    'mldataforge',
+    'LICENSE',
+    'README.md',
+]
