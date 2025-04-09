@@ -1,6 +1,7 @@
 import click
+from datasets import load_dataset
 
-from ....utils import check_arguments, load_parquet_files, save_jsonl
+from ....utils import check_arguments, save_jsonl
 
 @click.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)
@@ -12,5 +13,9 @@ from ....utils import check_arguments, load_parquet_files, save_jsonl
 @click.option("--buf-size", default=2**24, help=f"Buffer size for pigz compression (default: {2**24}).")
 def jsonl(output_file, parquet_files, compression, processes, overwrite, yes, buf_size):
     check_arguments(output_file, overwrite, yes, parquet_files)
-    ds = load_parquet_files(parquet_files)
-    save_jsonl(ds, output_file, compression=compression, processes=processes)
+    save_jsonl(
+        load_dataset("parquet", data_files=parquet_files, split="train"),
+        output_file,
+        compression=compression,
+        processes=processes,
+    )

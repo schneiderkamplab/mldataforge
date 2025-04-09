@@ -1,10 +1,7 @@
 import click
-import json
-import os
-from streaming import MDSWriter
-from tqdm import tqdm
+from datasets import load_dataset
 
-from ....utils import check_arguments, infer_mds_encoding, iterate_jsonl, open_jsonl, save_mds, use_pigz
+from ....utils import check_arguments, save_mds, use_pigz
 
 @click.command()
 @click.argument('output_dir', type=click.Path(exists=False))
@@ -16,8 +13,11 @@ from ....utils import check_arguments, infer_mds_encoding, iterate_jsonl, open_j
 @click.option("--buf-size", default=2**24, help=f"Buffer size for pigz compression (default: {2**24}).")
 def mds(output_dir, jsonl_files, processes, compression, overwrite, yes, buf_size):
     check_arguments(output_dir, overwrite, yes, jsonl_files)
-    with open_jsonl(jsonl_files[0]) as f:
-        sample = json.loads(f.readline())
-    pigz = use_pigz(compression)
-    columns = {key: infer_mds_encoding(value) for key, value in sample.items()}
-    save_mds(iterate_jsonl(jsonl_files), output_dir, columns=columns, processes=processes, compression=compression, buf_size=buf_size, pigz=pigz)
+    save_mds(
+        load_dataset("json", data_files=jsonl_files, split="train"),
+        output_dir,
+        processes=processes,
+        compression=compression,
+        buf_size=buf_size,
+        pigz=use_pigz(compression),
+    )

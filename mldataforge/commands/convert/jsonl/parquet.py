@@ -1,10 +1,9 @@
 import click
-import json
+from datasets import load_dataset
 import pyarrow as pa
 import pyarrow.parquet as pq
-from tqdm import tqdm
 
-from ....utils import batch_iterable, check_arguments, iterate_jsonl
+from ....utils import batch_iterable, check_arguments, save_parquet
 
 @click.command()
 @click.argument('output_file', type=click.Path(exists=False))
@@ -15,10 +14,9 @@ from ....utils import batch_iterable, check_arguments, iterate_jsonl
 @click.option("--batch-size", default=2**16, help="Batch size for loading MDS directories and writing Parquet files (default: 65536).")
 def parquet(output_file, jsonl_files, compression, overwrite, yes, batch_size):
     check_arguments(output_file, overwrite, yes, jsonl_files)
-    writer = None
-    for batch in batch_iterable(iterate_jsonl(jsonl_files), batch_size):
-        table = pa.Table.from_pylist(batch)
-        if writer is None:
-            writer = pq.ParquetWriter(output_file, table.schema, compression=compression)
-        writer.write_table(table)
-    writer.close()
+    save_parquet(
+        load_dataset("json", data_files=jsonl_files, split="train"),
+        output_file,
+        compression=compression,
+        batch_size=batch_size,
+    )

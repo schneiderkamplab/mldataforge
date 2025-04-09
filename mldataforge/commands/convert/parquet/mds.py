@@ -1,7 +1,7 @@
 import click
-from tqdm import tqdm
+from datasets import load_dataset
 
-from ....utils import check_arguments, infer_mds_encoding, load_parquet_files, save_mds, use_pigz
+from ....utils import check_arguments, save_mds, use_pigz
 
 @click.command()
 @click.argument('output_dir', type=click.Path(exists=False))
@@ -13,9 +13,11 @@ from ....utils import check_arguments, infer_mds_encoding, load_parquet_files, s
 @click.option("--buf-size", default=2**24, help=f"Buffer size for pigz compression (default: {2**24}).")
 def mds(output_dir, parquet_files, processes, compression, overwrite, yes, buf_size):
     check_arguments(output_dir, overwrite, yes, parquet_files)
-    ds = load_parquet_files(parquet_files)
-    pigz = use_pigz(compression)
-    sample = ds[0]
-    columns = {key: infer_mds_encoding(value) for key, value in sample.items()}
-    it = tqdm(ds, desc="Writing to MDS", unit="sample")
-    save_mds(it, output_dir, columns=columns, processes=processes, compression=compression, buf_size=buf_size, pigz=pigz)
+    save_mds(
+        load_dataset("parquet", data_files=parquet_files, split="train"),
+        output_dir,
+        processes=processes,
+        compression=compression,
+        buf_size=buf_size,
+        pigz=use_pigz(compression),
+    )

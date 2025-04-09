@@ -1,11 +1,13 @@
 import atexit
 import bz2
 import click
-from datasets import concatenate_datasets, load_dataset
+from datasets import concatenate_datasets
 import gzip
 import json
 import lzma
 from mltiming import timing
+import pyarrow as pa
+import pyarrow.parquet as pq
 import os
 import shutil
 from streaming import MDSWriter, StreamingDataset
@@ -23,11 +25,13 @@ __all__ = [
     "infer_mds_encoding",
     "infer_compression",
     "iterate_jsonl",
-    "load_parquet_files",
     "load_mds_directories",
     "open_jsonl",
     "pigz_available",
     "pigz_compress",
+    "save_jsonl",
+    "save_mds",
+    "save_parquet",
     "use_pigz",
 ]
 
@@ -122,17 +126,11 @@ def infer_compression(file_path):
     return None
 
 def iterate_jsonl(jsonl_files):
-    lines = 0
-    for jsonl_file in tqdm(jsonl_files, desc="Processing JSONL files", unit="file"):
+    for jsonl_file in jsonl_files:
         with open_jsonl(jsonl_file, compression="infer") as f:
-            for line_num, line in enumerate(f, start=1):
-                try:
-                    item = json.loads(line)
-                    yield item
-                except json.JSONDecodeError as e:
-                    print(f"Skipping line {line_num} in {jsonl_file} due to JSON error: {e}")
-                lines += 1
-    print(f"Wrote {lines} lines from {len(jsonl_files)} files")
+            for line in f:
+                item = json.loads(line)
+                yield item
 
 def load_mds_directories(mds_directories, split='.', batch_size=2**16):
     dss = []
@@ -147,18 +145,6 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16):
             download_retry=1,
             validate_hash=False,
         )
-        dss.append(ds)
-    if len(dss) == 1:
-        ds = dss[0]
-    else:
-        with timing(message=f"Concatenating {len(dss)} datasets"):
-            ds = concatenate_datasets(dsets=dss)
-    return ds
-
-def load_parquet_files(parquet_files):
-    dss = []
-    for parquet_file in tqdm(parquet_files, desc="Loading parquet files", unit="file"):
-        ds = load_dataset("parquet", data_files=parquet_file, split="train")
         dss.append(ds)
     if len(dss) == 1:
         ds = dss[0]
@@ -202,14 +188,24 @@ def pigz_compress(input_file, output_file, processes=64, buf_size=2**24, keep=Fa
         if not quiet:
             print(f"Removed {input_file}")
 
-def save_mds(iterable, output_dir, columns, processes=64, compression=None, buf_size=2**24, pigz=False):
+def save_jsonl(iterable, output_file, compression=None, processes=64):
+    compression = determine_compression(output_file, compression)
+    with open_jsonl(output_file, mode="wb", compression=compression, processes=processes) as f:
+        for item in tqdm(iterable, desc="Writing to JSONL", unit="sample"):
+            f.write(f"{json.dumps(item)}\n".encode("utf-8"))
+
+def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pigz=False):
     if compression == "none" or pigz:
         compression = None
     if compression == "gzip":
         compression = "gz"
-    with MDSWriter(out=output_dir, columns=columns, compression=compression) as writer:
-        for item in iterable:
-            writer.write(item)
+    writer = None
+    for sample in tqdm(it, desc="Writing to MDS", unit="sample"):
+        if writer is None:
+            columns = {key: infer_mds_encoding(value) for key, value in sample.items()}
+            writer = MDSWriter(out=output_dir, columns=columns, compression=compression)
+        writer.write(sample)
+    writer.finish()
     if pigz:
         index_path = os.path.join(output_dir, "index.json")
         index = json.load(open(index_path, "rt"))
@@ -230,11 +226,15 @@ def save_mds(iterable, output_dir, columns, processes=64, compression=None, buf_
         json.dump(index, open(index_path, "wt"))
         print(f"Compressed {output_dir} with pigz")
 
-def save_jsonl(iterable, output_file, compression=None, processes=64):
-    compression = determine_compression(output_file, compression)
-    with open_jsonl(output_file, mode="wb", compression=compression, processes=processes) as f:
-        for item in tqdm(iterable, desc="Writing to JSONL", unit="line"):
-            f.write(f"{json.dumps(item)}\n".encode("utf-8"))
+def save_parquet(it, output_file, compression=None, batch_size=2**16):
+    writer = None
+    it = tqdm(it, desc="Writing to Parquet", unit="sample")
+    for batch in batch_iterable(it, batch_size):
+        table = pa.Table.from_pylist(batch)
+        if writer is None:
+            writer = pq.ParquetWriter(output_file, table.schema, compression=compression)
+        writer.write_table(table)
+    writer.close()
 
 def use_pigz(compression):
     """Determine if pigz should be used based on the compression type."""
