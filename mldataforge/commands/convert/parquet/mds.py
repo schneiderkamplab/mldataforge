@@ -12,7 +12,7 @@ from ....utils import *
 @overwrite_option()
 @yes_option()
 @buf_size_option()
-def mds(output_dir, parquet_files, processes, compression, overwrite, yes, buf_size):
+def mds(output_dir, parquet_files, compression, processes, overwrite, yes, buf_size):
     check_arguments(output_dir, overwrite, yes, parquet_files)
     save_mds(
         load_dataset("parquet", data_files=parquet_files, split="train"),

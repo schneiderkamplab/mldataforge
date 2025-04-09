@@ -12,7 +12,7 @@ from ....utils import *
 @yes_option()
 @processes_option()
 @buf_size_option()
-def mds(output_dir, jsonl_files, processes, compression, overwrite, yes, buf_size):
+def mds(output_dir, jsonl_files, compression, processes, overwrite, yes, buf_size):
     check_arguments(output_dir, overwrite, yes, jsonl_files)
     save_mds(
         load_dataset("json", data_files=jsonl_files, split="train"),
