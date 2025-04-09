@@ -1,16 +1,17 @@
 import click
 from datasets import load_dataset
 
-from ....utils import check_arguments, save_mds, use_pigz
+from ....options import *
+from ....utils import *
 
 @click.command()
 @click.argument('output_dir', type=click.Path(exists=False))
 @click.argument('parquet_files', nargs=-1, type=click.Path(exists=True))
-@click.option('--compression', type=click.Choice(['none', 'br', 'bz2', 'gzip', 'pigz', 'snappy', 'zstd'], case_sensitive=False), default=None, help='Compression type for the output dataset (default: None).')
-@click.option("--processes", default=64, help="Number of processes to use for pigz compression (default: 64).")
-@click.option("--overwrite", is_flag=True, help="Overwrite existing MDS directory.")
-@click.option("--yes", is_flag=True, help="Assume yes to all prompts. Use with caution as it will remove entire directory trees without confirmation.")
-@click.option("--buf-size", default=2**24, help=f"Buffer size for pigz compression (default: {2**24}).")
+@compression_option(None, ['none', 'br', 'bz2', 'gzip', 'pigz', 'snappy', 'zstd'])
+@processes_option()
+@overwrite_option()
+@yes_option()
+@buf_size_option()
 def mds(output_dir, parquet_files, processes, compression, overwrite, yes, buf_size):
     check_arguments(output_dir, overwrite, yes, parquet_files)
     save_mds(
