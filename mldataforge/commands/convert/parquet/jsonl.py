@@ -1,7 +1,7 @@
 import click
 from mltiming import timing
 
-from ....utils import check_overwrite, create_temp_file, determine_compression, load_parquet_files, pigz_compress
+from ....utils import check_arguments, create_temp_file, determine_compression, load_parquet_files, pigz_compress
 
 @click.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)
@@ -12,9 +12,7 @@ from ....utils import check_overwrite, create_temp_file, determine_compression, 
 @click.option("--yes", is_flag=True, help="Assume yes to all prompts. Use with caution as it will remove files without confirmation.")
 @click.option("--buf-size", default=2**24, help=f"Buffer size for pigz compression (default: {2**24}).")
 def jsonl(output_file, parquet_files, compression, processes, overwrite, yes, buf_size):
-    check_overwrite(output_file, overwrite, yes)
-    if not parquet_files:
-        raise click.BadArgumentUsage("No parquet files provided.")
+    check_arguments(output_file, overwrite, yes, parquet_files)
     ds = load_parquet_files(parquet_files)
     compression = determine_compression(output_file, compression)
     compressed_file = None

@@ -2,7 +2,7 @@ import click
 import json
 from tqdm import tqdm
 
-from ....utils import check_overwrite, create_temp_file, determine_compression, load_mds_directories, open_jsonl
+from ....utils import check_arguments, determine_compression, load_mds_directories, open_jsonl
 
 @click.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)
@@ -13,9 +13,7 @@ from ....utils import check_overwrite, create_temp_file, determine_compression, 
 @click.option("--yes", is_flag=True, help="Assume yes to all prompts. Use with caution as it will remove files without confirmation.")
 @click.option("--batch-size", default=2**16, help="Batch size for loading MDS directories (default: 65536).")
 def jsonl(output_file, mds_directories, compression, processes, overwrite, yes, batch_size):
-    check_overwrite(output_file, overwrite, yes)
-    if not mds_directories:
-        raise click.BadArgumentUsage("No MDS files provided.")
+    check_arguments(output_file, overwrite, yes, mds_directories)
     ds = load_mds_directories(mds_directories, batch_size=batch_size)
     compression = determine_compression(output_file, compression)
     with open_jsonl(output_file, mode="wb", compression=compression, processes=processes) as f:

@@ -16,7 +16,7 @@ from .pigz import pigz_open
 
 __all__ = [
     "batch_iterable",
-    "check_overwrite",
+    "check_arguments",
     "confirm_overwrite",
     "create_temp_file",
     "determine_compression",
@@ -41,7 +41,9 @@ def batch_iterable(iterable, batch_size):
     if batch:
         yield batch
 
-def check_overwrite(output_path, overwrite, yes):
+def check_arguments(output_path, overwrite, yes, input_paths):
+    if not input_paths:
+        raise click.BadArgumentUsage("No input paths provided.")
     if os.path.exists(output_path):
         if os.path.isfile(output_path):
             if not overwrite:
@@ -201,6 +203,10 @@ def pigz_compress(input_file, output_file, processes=64, buf_size=2**24, keep=Fa
             print(f"Removed {input_file}")
 
 def save_mds(iterable, output_dir, columns, processes=64, compression=None, buf_size=2**24, pigz=False):
+    if compression == "none" or pigz:
+        compression = None
+    if compression == "gzip":
+        compression = "gz"
     with MDSWriter(out=output_dir, columns=columns, compression=compression) as writer:
         for item in iterable:
             writer.write(item)
