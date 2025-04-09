@@ -1,9 +1,7 @@
 import click
 from datasets import load_dataset
-import pyarrow as pa
-import pyarrow.parquet as pq
 
-from ....utils import batch_iterable, check_arguments, save_parquet
+from ....utils import check_arguments, save_parquet
 
 @click.command()
 @click.argument('output_file', type=click.Path(exists=False))

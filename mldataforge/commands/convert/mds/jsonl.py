@@ -12,5 +12,9 @@ from ....utils import check_arguments, load_mds_directories, save_jsonl
 @click.option("--batch-size", default=2**16, help="Batch size for loading MDS directories (default: 65536).")
 def jsonl(output_file, mds_directories, compression, processes, overwrite, yes, batch_size):
     check_arguments(output_file, overwrite, yes, mds_directories)
-    ds = load_mds_directories(mds_directories, batch_size=batch_size)
-    save_jsonl(ds, output_file, compression=compression, processes=processes)
+    save_jsonl(
+        load_mds_directories(mds_directories, batch_size=batch_size),
+        output_file,
+        compression=compression,
+        processes=processes,
+    )
