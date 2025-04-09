@@ -1,6 +1,7 @@
 import click
 
 from .mds import mds
+from .parquet import parquet
 
 __all__ = ["jsonl"]
 
@@ -9,3 +10,4 @@ def jsonl():
     pass
 
 jsonl.add_command(mds)
+jsonl.add_command(parquet)

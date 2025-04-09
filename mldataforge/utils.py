@@ -27,6 +27,16 @@ __all__ = [
     "use_pigz",
 ]
 
+def batch_iterable(iterable, batch_size):
+    batch = []
+    for item in iterable:
+        batch.append(item)
+        if len(batch) == batch_size:
+            yield batch
+            batch.clear()
+    if batch:
+        yield batch
+
 def check_overwrite(output_path, overwrite, yes):
     if os.path.exists(output_path):
         if os.path.isfile(output_path):
