@@ -230,6 +230,12 @@ def save_mds(iterable, output_dir, columns, processes=64, compression=None, buf_
         json.dump(index, open(index_path, "wt"))
         print(f"Compressed {output_dir} with pigz")
 
+def save_jsonl(iterable, output_file, compression=None, processes=64):
+    compression = determine_compression(output_file, compression)
+    with open_jsonl(output_file, mode="wb", compression=compression, processes=processes) as f:
+        for item in tqdm(iterable, desc="Writing to JSONL", unit="line"):
+            f.write(f"{json.dumps(item)}\n".encode("utf-8"))
+
 def use_pigz(compression):
     """Determine if pigz should be used based on the compression type."""
     return compression == "pigz" or (compression == "gzip" and pigz_available())

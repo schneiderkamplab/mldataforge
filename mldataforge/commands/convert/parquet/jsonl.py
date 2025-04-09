@@ -1,7 +1,6 @@
 import click
-from mltiming import timing
 
-from ....utils import check_arguments, create_temp_file, determine_compression, load_parquet_files, pigz_compress
+from ....utils import check_arguments, load_parquet_files, save_jsonl
 
 @click.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)
@@ -14,10 +13,4 @@ from ....utils import check_arguments, create_temp_file, determine_compression, 
 def jsonl(output_file, parquet_files, compression, processes, overwrite, yes, buf_size):
     check_arguments(output_file, overwrite, yes, parquet_files)
     ds = load_parquet_files(parquet_files)
-    compression = determine_compression(output_file, compression)
-    compressed_file = None
-    if compression == "pigz":
-        compression, compressed_file, output_file = None, output_file, create_temp_file()
-    ds.to_json(output_file, num_proc=processes, orient="records", lines=True, compression=compression)
-    if compressed_file is not None:
-        pigz_compress(output_file, compressed_file, processes, buf_size, keep=False)
+    save_jsonl(ds, output_file, compression=compression, processes=processes)

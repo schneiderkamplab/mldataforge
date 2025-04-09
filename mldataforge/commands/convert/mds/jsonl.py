@@ -1,8 +1,6 @@
 import click
-import json
-from tqdm import tqdm
 
-from ....utils import check_arguments, determine_compression, load_mds_directories, open_jsonl
+from ....utils import check_arguments, load_mds_directories, save_jsonl
 
 @click.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)
@@ -15,7 +13,4 @@ from ....utils import check_arguments, determine_compression, load_mds_directori
 def jsonl(output_file, mds_directories, compression, processes, overwrite, yes, batch_size):
     check_arguments(output_file, overwrite, yes, mds_directories)
     ds = load_mds_directories(mds_directories, batch_size=batch_size)
-    compression = determine_compression(output_file, compression)
-    with open_jsonl(output_file, mode="wb", compression=compression, processes=processes) as f:
-        for item in tqdm(ds, desc="Writing to JSONL", unit="line"):
-            f.write(f"{json.dumps(item)}\n".encode("utf-8"))
+    save_jsonl(ds, output_file, compression=compression, processes=processes)
