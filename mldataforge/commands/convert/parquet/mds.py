@@ -1,10 +1,7 @@
 import click
-import json
-import os
-from streaming import MDSWriter
 from tqdm import tqdm
 
-from ....utils import check_overwrite, infer_mds_encoding, load_parquet_files, pigz_compress, use_pigz
+from ....utils import check_overwrite, infer_mds_encoding, load_parquet_files, pigz_compress, save_mds, use_pigz
 
 @click.command()
 @click.argument('output_dir', type=click.Path(exists=False))
@@ -26,18 +23,5 @@ def mds(output_dir, parquet_files, processes, compression, overwrite, yes, buf_s
     if compression == "gzip":
         compression = "gz"
     columns = {key: infer_mds_encoding(value) for key, value in sample.items()}
-    lines = 0
-    with MDSWriter(out=output_dir, columns=columns, compression=compression) as writer:
-        for item in tqdm(ds, desc="Processing samples", unit="sample"):
-            writer.write(item)
-            lines += 1
-    print(f"Wrote {lines} lines from {len(parquet_files)} files to MDS files in {output_dir}")
-    if pigz:
-        file_paths = []
-        for file in os.listdir(output_dir):
-            if file.endswith(".mds"):
-                file_paths.append(os.path.join(output_dir, file))
-        for file_path in tqdm(file_paths, desc="Compressing with pigz", unit="file"):
-            pigz_compress(file_path, file_path + ".gz", processes, buf_size=buf_size, keep=False, quiet=True)
-        output_dir
-        print(f"Compressed {output_dir} with pigz")
+    it = tqdm(ds, desc="Writing to MDS", unit="sample")
+    save_mds(it, output_dir, columns=columns, processes=processes, compression=compression, buf_size=buf_size, pigz=pigz)

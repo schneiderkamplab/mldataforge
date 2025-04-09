@@ -8,7 +8,7 @@ import lzma
 from mltiming import timing
 import os
 import shutil
-from streaming import StreamingDataset
+from streaming import MDSWriter, StreamingDataset
 import tempfile
 from tqdm import tqdm
 
@@ -199,6 +199,30 @@ def pigz_compress(input_file, output_file, processes=64, buf_size=2**24, keep=Fa
         os.remove(input_file)
         if not quiet:
             print(f"Removed {input_file}")
+
+def save_mds(iterable, output_dir, columns, processes=64, compression=None, buf_size=2**24, pigz=False):
+    with MDSWriter(out=output_dir, columns=columns, compression=compression) as writer:
+        for item in iterable:
+            writer.write(item)
+    if pigz:
+        index_path = os.path.join(output_dir, "index.json")
+        index = json.load(open(index_path, "rt"))
+        name2info = {shard["raw_data"]["basename"]: shard for shard in index["shards"]}
+        file_names = [file for file in os.listdir(output_dir) if file.endswith(".mds")]
+        assert set(file_names) == set(name2info.keys())
+        for file_name in tqdm(file_names, desc="Compressing with pigz", unit="file"):
+            compressed_file_name = file_name + ".gz"
+            file_path = os.path.join(output_dir, file_name)
+            compressed_file_path = os.path.join(output_dir, compressed_file_name)
+            pigz_compress(file_path, compressed_file_path, processes, buf_size=buf_size, keep=False, quiet=True)
+            name2info[file_name]["compression"] = "gz"
+            name2info[file_name]["zip_data"] = {
+                "basename": compressed_file_name,
+                "bytes": os.stat(compressed_file_path).st_size,
+                "hashes": {},
+            }
+        json.dump(index, open(index_path, "wt"))
+        print(f"Compressed {output_dir} with pigz")
 
 def use_pigz(compression):
     """Determine if pigz should be used based on the compression type."""
