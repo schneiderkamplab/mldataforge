@@ -1,6 +1,7 @@
 import click
 
 from .jsonl import jsonl
+from .mds import mds
 from .parquet import parquet
 
 __all__ = ["convert"]
@@ -9,5 +10,6 @@ __all__ = ["convert"]
 def convert():
     pass
 
-convert.add_command(parquet)
 convert.add_command(jsonl)
+convert.add_command(mds)
+convert.add_command(parquet)

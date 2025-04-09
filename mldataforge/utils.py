@@ -7,9 +7,11 @@ import lzma
 from mltiming import timing
 import os
 import shutil
-import subprocess
+from streaming import StreamingDataset
 import tempfile
 from tqdm import tqdm
+
+from .pigz import pigz_open
 
 __all__ = [
     "check_overwrite",
@@ -18,71 +20,12 @@ __all__ = [
     "infer_mds_encoding",
     "infer_compression",
     "load_parquet_files",
+    "load_mds_directories",
     "open_jsonl",
     "pigz_available",
     "pigz_compress",
     "use_pigz",
 ]
-
-class PigzFile(object):
-    """A wrapper for pigz to handle gzip compression and decompression."""
-    def __init__(self, path, mode="rt", processes=4, encoding=None):
-        if mode not in ("rt", "wt", "rb", "wb"):
-            raise ValueError("Mode must be one of rt, wt, rb, or wb.")
-        self.path = path
-        self.mode = mode
-        self.processes = processes
-        self.encoding = "latin1" if mode[1] == "b" else ("utf-8" if encoding is None else encoding)
-        self._process = None
-        self._fw = None
-        if self.mode[0] == "r":
-            args = ["pigz", "-d", "-c", "-p", str(self.processes), self.path]
-            self._process = subprocess.Popen(
-                args, 
-                stdout=subprocess.PIPE,
-                encoding=encoding,
-            )
-        elif self.mode[0] == "w":
-            args = ["pigz", "-p", str(self.processes), "-c"]
-            self._fw = open(self.path, "w+")
-            self._process = subprocess.Popen(
-                args, 
-                stdout=self._fw,
-                stdin=subprocess.PIPE,
-                encoding=encoding,
-            )
-        
-    def __iter__(self):
-        assert self.mode[0] == "r"
-        for line in self._process.stdout:
-            yield line
-        self._process.wait()
-        assert self._process.returncode == 0
-        self._process.stdout.close()
-        self._process = None
-        
-    def write(self, line):
-        assert self.mode[0] == "w"
-        self._process.stdin.write(line if self.mode[1] == "t" else line.encode(self.encoding))
-    
-    def close(self): 
-        if self._process:
-            if self.mode[0] == "r":
-                self._process.kill()
-                self._process.stdout.close()
-                self._process = None
-            elif self.mode[1] == "w":
-                self._process.stdin.close()
-                self._process.wait()
-                self._process = None
-                self._fw.close()
-                self._fw = None
-    
-    def __enter__(self):
-        return self
-    
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
 
 def check_overwrite(output_path, overwrite, yes):
     if os.path.exists(output_path):
@@ -162,6 +105,27 @@ def infer_compression(file_path):
         return 'zstd'
     return None
 
+def load_mds_directories(mds_directories, split='.', batch_size=2**16):
+    dss = []
+    for mds_directory in tqdm(mds_directories, desc="Loading MDS directories", unit="directory"):
+        ds = StreamingDataset(
+            local=mds_directory,
+            remote=None,
+            split=split,
+            shuffle=False,
+            allow_unsafe_types=True,
+            batch_size=batch_size,
+            download_retry=1,
+            validate_hash=False,
+        )
+        dss.append(ds)
+    if len(dss) == 1:
+        ds = dss[0]
+    else:
+        with timing(message=f"Concatenating {len(dss)} datasets"):
+            ds = concatenate_datasets(dsets=dss)
+    return ds
+
 def load_parquet_files(parquet_files):
     dss = []
     for parquet_file in tqdm(parquet_files, desc="Loading parquet files", unit="file"):
@@ -174,11 +138,13 @@ def load_parquet_files(parquet_files):
             ds = concatenate_datasets(dsets=dss)
     return ds
 
-def open_jsonl(file_path, mode="rt", compression="infer"):
+def open_jsonl(file_path, mode="rt", compression="infer", processes=64):
     """Open a JSONL file, handling gzip compression if necessary."""
     compression = determine_compression(file_path, compression)
-    if compression in ("gzip", "pigz"):
+    if compression == "gzip":
         return gzip.open(file_path, mode)
+    if compression == "pigz":
+        return pigz_open(file_path, mode, processes=processes) if mode[0] == "w" else gzip.open(file_path, mode)
     if compression == "bz2":
         return bz2.open(file_path, mode)
     if compression == "xz":
@@ -195,7 +161,7 @@ def pigz_compress(input_file, output_file, processes=64, buf_size=2**24, keep=Fa
     """Compress a file using pigz."""
     size = os.stat(input_file).st_size
     num_blocks = (size+buf_size-1) // buf_size
-    with open(input_file, "rt", encoding="latin1") as f_in, PigzFile(output_file, "wb", processes=processes) as f_out:
+    with open(input_file, "rb") as f_in, pigz_open(output_file, "wb", processes=processes) as f_out:
         for _ in tqdm(range(num_blocks), desc="Compressing with pigz", unit="block", disable=quiet):
             buf = f_in.read(buf_size)
             assert buf
