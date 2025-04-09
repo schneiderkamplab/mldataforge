@@ -3,6 +3,7 @@ import bz2
 import click
 from datasets import concatenate_datasets, load_dataset
 import gzip
+import json
 import lzma
 from mltiming import timing
 import os
@@ -14,11 +15,14 @@ from tqdm import tqdm
 from .pigz import pigz_open
 
 __all__ = [
+    "batch_iterable",
     "check_overwrite",
+    "confirm_overwrite",
     "create_temp_file",
     "determine_compression",
     "infer_mds_encoding",
     "infer_compression",
+    "iterate_jsonl",
     "load_parquet_files",
     "load_mds_directories",
     "open_jsonl",
@@ -114,6 +118,19 @@ def infer_compression(file_path):
     if extension.endswith('.zst'):
         return 'zstd'
     return None
+
+def iterate_jsonl(jsonl_files):
+    lines = 0
+    for jsonl_file in tqdm(jsonl_files, desc="Processing JSONL files", unit="file"):
+        with open_jsonl(jsonl_file, compression="infer") as f:
+            for line_num, line in enumerate(f, start=1):
+                try:
+                    item = json.loads(line)
+                    yield item
+                except json.JSONDecodeError as e:
+                    print(f"Skipping line {line_num} in {jsonl_file} due to JSON error: {e}")
+                lines += 1
+    print(f"Wrote {lines} lines from {len(jsonl_files)} files")
 
 def load_mds_directories(mds_directories, split='.', batch_size=2**16):
     dss = []

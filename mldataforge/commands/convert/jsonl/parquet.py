@@ -4,20 +4,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from tqdm import tqdm
 
-from ....utils import batch_iterable, check_overwrite, open_jsonl
-
-def _iterate(jsonl_files):
-    lines = 0
-    for jsonl_file in tqdm(jsonl_files, desc="Processing JSONL files", unit="file"):
-        with open_jsonl(jsonl_file, compression="infer") as f:
-            for line_num, line in enumerate(f, start=1):
-                try:
-                    item = json.loads(line)
-                    yield item
-                except json.JSONDecodeError as e:
-                    print(f"Skipping line {line_num} in {jsonl_file} due to JSON error: {e}")
-                lines += 1
-    print(f"Wrote {lines} lines from {len(jsonl_files)} files")
+from ....utils import batch_iterable, check_overwrite, iterate_jsonl
 
 @click.command()
 @click.argument('output_file', type=click.Path(exists=False))
@@ -31,7 +18,7 @@ def parquet(output_file, jsonl_files, compression, overwrite, yes, batch_size):
     if not jsonl_files:
         raise click.BadArgumentUsage("No JSONL files provided.")
     writer = None
-    for batch in batch_iterable(_iterate(jsonl_files), batch_size):
+    for batch in batch_iterable(iterate_jsonl(jsonl_files), batch_size):
         table = pa.Table.from_pylist(batch)
         if writer is None:
             writer = pq.ParquetWriter(output_file, table.schema, compression=compression)

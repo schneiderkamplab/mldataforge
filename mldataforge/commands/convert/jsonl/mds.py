@@ -4,7 +4,7 @@ import os
 from streaming import MDSWriter
 from tqdm import tqdm
 
-from ....utils import check_overwrite, infer_mds_encoding, open_jsonl, pigz_compress, use_pigz
+from ....utils import check_overwrite, infer_mds_encoding, iterate_jsonl, open_jsonl, pigz_compress, use_pigz
 
 @click.command()
 @click.argument('output_dir', type=click.Path(exists=False))
@@ -28,16 +28,8 @@ def mds(output_dir, jsonl_files, processes, compression, overwrite, yes, buf_siz
     columns = {key: infer_mds_encoding(value) for key, value in sample.items()}
     lines = 0
     with MDSWriter(out=output_dir, columns=columns, compression=compression) as writer:
-        for jsonl_file in tqdm(jsonl_files, desc="Processing JSONL files", unit="file"):
-            with open_jsonl(jsonl_file, compression="infer") as f:
-                for line_num, line in enumerate(f, start=1):
-                    try:
-                        item = json.loads(line)
-                        writer.write(item)
-                    except json.JSONDecodeError as e:
-                        print(f"Skipping line {line_num} in {jsonl_file} due to JSON error: {e}")
-                    lines += 1
-    print(f"Wrote {lines} lines from {len(jsonl_files)} files to MDS files in {output_dir}")
+        for item in iterate_jsonl(jsonl_files):
+            writer.write(item)
     if pigz:
         index_path = os.path.join(output_dir, "index.json")
         index = json.load(open(index_path, "rt"))
