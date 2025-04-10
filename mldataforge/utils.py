@@ -12,6 +12,7 @@ import shutil
 from streaming import MDSWriter, StreamingDataset
 from tqdm import tqdm
 
+from .mds import MDSBulkReader
 from .pigz import pigz_open
 
 __all__ = [
@@ -98,7 +99,9 @@ def _infer_compression(file_path):
         return 'zstd'
     return None
 
-def load_mds_directories(mds_directories, split='.', batch_size=2**16):
+def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True):
+    if bulk:
+        return MDSBulkReader(mds_directories, split=split)
     dss = []
     for mds_directory in mds_directories:
         ds = StreamingDataset(

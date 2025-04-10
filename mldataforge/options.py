@@ -29,6 +29,16 @@ def buf_size_option(default=2**24):
         help=f"Buffer size for pigz compression (default: {default}).",
     )
 
+def no_bulk_option():
+    """
+    Option for specifying whether to use a custom space and time-efficient bulk reader (only gzip and no compression).
+    """
+    return click.option(
+        "--no-bulk",
+        is_flag=True,
+        help="Use a custom space and time-efficient bulk reader (only gzip and no compression).",
+    )
+
 def compression_option(default, choices):
     """
     Option for specifying the compression type.
