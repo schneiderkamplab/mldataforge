@@ -67,6 +67,7 @@ def test_join(fmt, out_file, in_files, tmp_dir):
 @pytest.mark.parametrize("fmt,in_files", [
     ("jsonl", ["test.parquet.jsonl.gz", "test.parquet.mds.jsonl.gz"]),
     ("mds", ["test.parquet.mds", "test.parquet.jsonl.mds"]),
+    ("parquet", ["test.parquet", "test.parquet.mds.parquet"]),
 ])
 def test_split(fmt, in_files, tmp_dir):
     runner = CliRunner()

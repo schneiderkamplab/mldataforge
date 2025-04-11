@@ -56,3 +56,23 @@ def mds(mds_directories, prefix, output_dir, size_hint, compression, processes, 
         overwrite=overwrite,
         yes=yes,
     )
+
+@split.command()
+@click.argument("parquet_files", type=click.Path(exists=True), required=True, nargs=-1)
+@prefix_option()
+@output_dir_option()
+@size_hint_option()
+@compression_option("snappy", ["snappy", "gzip", "zstd"])
+@overwrite_option()
+@yes_option()
+@batch_size_option()
+def parquet(parquet_files, prefix, output_dir, size_hint, compression, overwrite, yes, batch_size):
+    save_parquet(
+        load_dataset("parquet", data_files=parquet_files, split="train"),
+        output_file=f"{output_dir}/{prefix}{{part:04d}}.parquet",
+        compression=compression,
+        batch_size=batch_size,
+        size_hint=size_hint,
+        overwrite=overwrite,
+        yes=yes,
+    )

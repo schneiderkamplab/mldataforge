@@ -184,7 +184,7 @@ def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=
         if f is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
-            f= _open_jsonl(part_file, mode="wb", compression=compression, processes=processes)
+            f = _open_jsonl(part_file, mode="wb", compression=compression, processes=processes)
         f.write(f"{json.dumps(item)}\n".encode("utf-8"))
         if size_hint is not None and f.tell() >= size_hint:
             f.close()
@@ -216,7 +216,8 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
             writer.finish()
             part += 1
             writer = None
-    writer.finish()
+    if writer is not None:
+        writer.finish()
     if pigz:
         for output_dir in files:
             index_path = os.path.join(output_dir, "index.json")
@@ -238,15 +239,25 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
             json.dump(index, open(index_path, "wt"))
             print(f"Compressed {output_dir} with pigz")
 
-def save_parquet(it, output_file, compression=None, batch_size=2**16):
+def save_parquet(it, output_file, compression=None, batch_size=2**16, size_hint=None, overwrite=True, yes=True):
     writer = None
+    part = 0
     it = tqdm(it, desc="Writing to Parquet", unit="sample")
     for batch in batch_iterable(it, batch_size):
         table = pa.Table.from_pylist(batch)
         if writer is None:
-            writer = pq.ParquetWriter(output_file, table.schema, compression=compression)
+            part_file = output_file.format(part=part)
+            check_arguments(part_file, overwrite, yes)
+            writer = pq.ParquetWriter(part_file, table.schema, compression=compression)
+            offset = 0
         writer.write_table(table)
-    writer.close()
+        offset += table.nbytes
+        if size_hint is not None and offset >= size_hint:
+            writer.close()
+            part += 1
+            writer = None
+    if writer is not None:
+        writer.close()
 
 def use_pigz(compression):
     """Determine if pigz should be used based on the compression type."""
