@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mldataforge"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
   { name = "Peter Schneider-Kamp" }
 ]
@@ -24,6 +24,11 @@ dependencies = [
     'mltiming',
     'mosaicml-streaming'
 ]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-dependency"]
+dev = ["build", "twine"]
+all = ["build", "twine", "pytest", "pytest-dependency"]
 
 [project.urls]
 "Homepage" = "https://github.com/schneiderkamplab/mldataforge"
