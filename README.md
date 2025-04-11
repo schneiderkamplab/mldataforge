@@ -1,8 +1,11 @@
 # mldatasets
 swiss army knife of scripts for transforming and processing datasets for machine learning
 
-## scope
+## conversion
 Currently, mldataforge provides space- and time-efficient conversions between JSONL (with or without compression), MosaiclML Dataset (MDS format), and Parquet. The implementations handle conversions by individual samples or small batches of samples and make efficient use of multi-core architectures where possible. Consequently, mldataforge is an excellent choice when transforming TB-scale datasets on data processing nodes with many cores.
+
+## splitting
+Currently, mldataforge provides space- and time-efficient splitting of JSONL (with or without compression). The implementations handle conversions by individual samples or small batches of samples and make efficient use of multi-core architectures where possible. The splitting function can take an already splitted dataset and re-split it with a different granularity.
 
 ## installation and general usage
 ```

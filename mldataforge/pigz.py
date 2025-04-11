@@ -16,6 +16,7 @@ class PigzFile(object):
         self.encoding = encoding if self.is_text else None
         self._process = None
         self._fw = None
+        self.offset = 0
         args = ["pigz", "-p", str(self.processes), "-c"]
         if self.is_read:
             args.extend(("-d", self.path))
@@ -28,6 +29,7 @@ class PigzFile(object):
         assert self.is_read
         for line in self._process.stdout:
             assert isinstance(line, str) if self.is_text else isinstance(line, bytes)
+            self.offset += len(line)
             yield line
         self._process.wait()
         assert self._process.returncode == 0
@@ -39,6 +41,7 @@ class PigzFile(object):
         assert self._fw is not None
         assert isinstance(line, str) if self.is_text else isinstance(line, bytes)
         self._process.stdin.write(line)
+        self.offset += len(line)
     
     def close(self): 
         if self._process:
@@ -52,7 +55,10 @@ class PigzFile(object):
                 self._process = None
                 self._fw.close()
                 self._fw = None
-    
+
+    def tell(self):
+        return self.offset
+
     def __enter__(self):
         return self
     

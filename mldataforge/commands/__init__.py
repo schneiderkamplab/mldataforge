@@ -2,6 +2,7 @@ import click
 
 from .convert import convert
 from .join import join
+from .split import split
 
 __all__ = ["cli"]
 
@@ -11,3 +12,4 @@ def cli():
 
 cli.add_command(convert)
 cli.add_command(join)
+cli.add_command(split)

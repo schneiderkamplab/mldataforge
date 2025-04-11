@@ -19,6 +19,7 @@ __all__ = [
     "batch_iterable",
     "check_arguments",
     "confirm_overwrite",
+    "extension",
     "load_mds_directories",
     "save_jsonl",
     "save_mds",
@@ -36,8 +37,8 @@ def batch_iterable(iterable, batch_size):
     if batch:
         yield batch
 
-def check_arguments(output_path, overwrite, yes, input_paths):
-    if not input_paths:
+def check_arguments(output_path, overwrite, yes, input_paths=None):
+    if input_paths is not None and not input_paths:
         raise click.BadArgumentUsage("No input paths provided.")
     if os.path.exists(output_path):
         if os.path.isfile(output_path):
@@ -69,6 +70,24 @@ def _determine_compression(file_path, compression="infer"):
     if compression == "none":
         compression = None
     return compression
+
+def extension(compression, file_path):
+    """Get the file extension for the given compression type."""
+    if compression == "infer":
+        compression = _infer_compression(file_path)
+    if compression in ("gzip", "pigz"):
+        return ".gz"
+    if compression == "bz2":
+        return ".bz2"
+    if compression == "xz":
+        return ".xz"
+    if compression == "zip":
+        return ".zip"
+    if compression == "zstd":
+        return ".zst"
+    if compression is None:
+        return ""
+    raise ValueError(f"Unsupported compression type: {compression}")
 
 def _infer_mds_encoding(value):
     """Determine the MDS encoding for a given value."""
@@ -157,11 +176,22 @@ def _pigz_compress(input_file, output_file, processes=64, buf_size=2**24, keep=F
         if not quiet:
             print(f"Removed {input_file}")
 
-def save_jsonl(iterable, output_file, compression=None, processes=64):
+def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=None, overwrite=True, yes=True):
     compression = _determine_compression(output_file, compression)
-    with _open_jsonl(output_file, mode="wb", compression=compression, processes=processes) as f:
-        for item in tqdm(iterable, desc="Writing to JSONL", unit="sample"):
-            f.write(f"{json.dumps(item)}\n".encode("utf-8"))
+    f = None
+    part = 0
+    for item in tqdm(iterable, desc="Writing to JSONL", unit="sample"):
+        if f is None:
+            part_file = output_file.format(part=part)
+            check_arguments(part_file, overwrite, yes)
+            f= _open_jsonl(part_file, mode="wb", compression=compression, processes=processes)
+        f.write(f"{json.dumps(item)}\n".encode("utf-8"))
+        if size_hint is not None and f.tell() >= size_hint:
+            f.close()
+            part += 1
+            f = None
+    if f is not None:
+        f.close()
 
 def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pigz=False):
     if compression == "none" or pigz:

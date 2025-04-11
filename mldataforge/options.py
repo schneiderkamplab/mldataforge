@@ -50,6 +50,17 @@ def compression_option(default, choices):
         help=f"Compress the output file (default: {default}).",
     )
 
+def output_dir_option(default="."):
+    """
+    Option for specifying the output directory.
+    """
+    return click.option(
+        "--output-dir",
+        default=default,
+        type=click.Path(exists=False),
+        help="Output directory.",
+    )
+
 def overwrite_option():
     """
     Option for specifying whether to overwrite existing files.
@@ -60,6 +71,16 @@ def overwrite_option():
         help="Overwrite existing path.",
     )
 
+def prefix_option(default="part-"):
+    """
+    Option for specifying the prefix for output files.
+    """
+    return click.option(
+        "--prefix",
+        default=default,
+        help=f"Prefix for output files (default: {default}).",
+    )
+
 def processes_option(default=64):
     """
     Option for specifying the number of processes to use.
@@ -68,6 +89,16 @@ def processes_option(default=64):
         "--processes",
         default=default,
         help=f"Number of processes to use (default: {default}).",
+    )
+
+def size_hint_option(default=2**28):
+    """
+    Option for specifying the size hint.
+    """
+    return click.option(
+        "--size-hint",
+        default=default,
+        help=f"Size hint for the dataset (default: {default}).",
     )
 
 def yes_option():
