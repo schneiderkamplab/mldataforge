@@ -62,3 +62,24 @@ def test_join(fmt, out_file, in_files, tmp_dir):
     ])
     assert result.exit_code == 0, f"Failed joining files for {fmt}: {result.output}"
     assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"
+
+@pytest.mark.dependency(depends=["conversion"])
+@pytest.mark.parametrize("fmt,in_files", [
+    ("jsonl", ["test.parquet.jsonl.gz", "test.parquet.mds.jsonl.gz"]),
+    ("mds", ["test.parquet.mds", "test.parquet.jsonl.mds"]),
+])
+def test_split(fmt, in_files, tmp_dir):
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "split",
+        fmt,
+        *[str(tmp_dir / f) for f in in_files],
+        "--prefix",
+        "test_",
+        "--output-dir",
+        str(tmp_dir),
+        "--overwrite",
+        "--yes"
+    ])
+    assert result.exit_code == 0, f"Failed splitting files for {fmt}: {result.output}"
+    assert [None for f in tmp_dir.iterdir() if f.name.startswith("test_") and f.name.endswith(".jsonl.gz")]

@@ -18,7 +18,8 @@ def jsonl():
 @yes_option()
 @processes_option()
 @buf_size_option()
-def mds(output_dir, jsonl_files, compression, processes, overwrite, yes, buf_size):
+@shard_size_option()
+def mds(output_dir, jsonl_files, compression, processes, overwrite, yes, buf_size, shard_size):
     check_arguments(output_dir, overwrite, yes, jsonl_files)
     save_mds(
         load_dataset("json", data_files=jsonl_files, split="train"),
@@ -27,6 +28,7 @@ def mds(output_dir, jsonl_files, compression, processes, overwrite, yes, buf_siz
         compression=compression,
         buf_size=buf_size,
         pigz=use_pigz(compression),
+        shard_size=shard_size,
     )
 
 @jsonl.command()

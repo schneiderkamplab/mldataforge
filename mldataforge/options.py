@@ -91,7 +91,17 @@ def processes_option(default=64):
         help=f"Number of processes to use (default: {default}).",
     )
 
-def size_hint_option(default=2**28):
+def shard_size_option(default=2**26):
+    """
+    Option for specifying the shard size.
+    """
+    return click.option(
+        "--shard-size",
+        default=default,
+        help=f"Shard size for the dataset (default: {default}).",
+    )
+
+def size_hint_option(default=2**26):
     """
     Option for specifying the size hint.
     """

@@ -34,7 +34,8 @@ def jsonl(output_file, parquet_files, compression, processes, overwrite, yes):
 @overwrite_option()
 @yes_option()
 @buf_size_option()
-def mds(output_dir, parquet_files, compression, processes, overwrite, yes, buf_size):
+@shard_size_option()
+def mds(output_dir, parquet_files, compression, processes, overwrite, yes, buf_size, shard_size):
     check_arguments(output_dir, overwrite, yes, parquet_files)
     save_mds(
         load_dataset("parquet", data_files=parquet_files, split="train"),
@@ -43,4 +44,5 @@ def mds(output_dir, parquet_files, compression, processes, overwrite, yes, buf_s
         compression=compression,
         buf_size=buf_size,
         pigz=use_pigz(compression),
+        shard_size=shard_size,
     )

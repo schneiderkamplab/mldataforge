@@ -193,37 +193,50 @@ def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=
     if f is not None:
         f.close()
 
-def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pigz=False):
+def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pigz=False, shard_size=None, size_hint=None, overwrite=True, yes=True):
     if compression == "none" or pigz:
         compression = None
     if compression == "gzip":
         compression = "gz"
     writer = None
+    part = 0
+    files = []
     for sample in tqdm(it, desc="Writing to MDS", unit="sample"):
         if writer is None:
+            part_dir = output_dir.format(part=part)
+            check_arguments(part_dir, overwrite, yes)
+            files.append(part_dir)
             columns = {key: _infer_mds_encoding(value) for key, value in sample.items()}
-            writer = MDSWriter(out=output_dir, columns=columns, compression=compression)
+            writer = MDSWriter(out=part_dir, columns=columns, compression=compression, size_limit=shard_size)
+            offset = 0
+        prev = writer.new_shard_size
         writer.write(sample)
+        offset += (writer.new_shard_size - prev) if prev < writer.new_shard_size else writer.new_shard_size
+        if size_hint is not None and offset >= size_hint:
+            writer.finish()
+            part += 1
+            writer = None
     writer.finish()
     if pigz:
-        index_path = os.path.join(output_dir, "index.json")
-        index = json.load(open(index_path, "rt"))
-        name2info = {shard["raw_data"]["basename"]: shard for shard in index["shards"]}
-        file_names = [file for file in os.listdir(output_dir) if file.endswith(".mds")]
-        assert set(file_names) == set(name2info.keys())
-        for file_name in tqdm(file_names, desc="Compressing with pigz", unit="file"):
-            compressed_file_name = file_name + ".gz"
-            file_path = os.path.join(output_dir, file_name)
-            compressed_file_path = os.path.join(output_dir, compressed_file_name)
-            _pigz_compress(file_path, compressed_file_path, processes, buf_size=buf_size, keep=False, quiet=True)
-            name2info[file_name]["compression"] = "gz"
-            name2info[file_name]["zip_data"] = {
-                "basename": compressed_file_name,
-                "bytes": os.stat(compressed_file_path).st_size,
-                "hashes": {},
-            }
-        json.dump(index, open(index_path, "wt"))
-        print(f"Compressed {output_dir} with pigz")
+        for output_dir in files:
+            index_path = os.path.join(output_dir, "index.json")
+            index = json.load(open(index_path, "rt"))
+            name2info = {shard["raw_data"]["basename"]: shard for shard in index["shards"]}
+            file_names = [file for file in os.listdir(output_dir) if file.endswith(".mds")]
+            assert set(file_names) == set(name2info.keys())
+            for file_name in tqdm(file_names, desc="Compressing with pigz", unit="file"):
+                compressed_file_name = file_name + ".gz"
+                file_path = os.path.join(output_dir, file_name)
+                compressed_file_path = os.path.join(output_dir, compressed_file_name)
+                _pigz_compress(file_path, compressed_file_path, processes, buf_size=buf_size, keep=False, quiet=True)
+                name2info[file_name]["compression"] = "gz"
+                name2info[file_name]["zip_data"] = {
+                    "basename": compressed_file_name,
+                    "bytes": os.stat(compressed_file_path).st_size,
+                    "hashes": {},
+                }
+            json.dump(index, open(index_path, "wt"))
+            print(f"Compressed {output_dir} with pigz")
 
 def save_parquet(it, output_file, compression=None, batch_size=2**16):
     writer = None
