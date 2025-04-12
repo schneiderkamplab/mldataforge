@@ -11,6 +11,7 @@ import os
 import shutil
 from streaming import MDSWriter, StreamingDataset
 from tqdm import tqdm
+import zstandard
 
 from .mds import MDSBulkReader
 from .pigz import pigz_open
@@ -152,6 +153,8 @@ def _open_jsonl(file_path, mode="rt", compression="infer", processes=64):
         return bz2.open(file_path, mode)
     if compression == "xz":
         return lzma.open(file_path, mode)
+    if compression == "zstd":
+        return zstandard.open(file_path, mode)
     if compression is None:
         return open(file_path, mode)
     raise ValueError(f"Unsupported compression type: {compression}")

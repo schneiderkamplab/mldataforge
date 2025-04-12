@@ -9,6 +9,10 @@ __alll__ = [
     "yes_option",
 ]
 
+JSONL_COMPRESSIONS = ["infer", "none", "pigz", "gzip", "bz2", "xz"]
+MDS_COMPRESSIONS = ["none", "br", "bz2", "gzip", "pigz", "snappy", "zstd"]
+PARQUET_COMPRESSIONS = ["snappy", "gzip", "zstd"]
+
 def batch_size_option(default=2**16):
     """
     Option for specifying the batch size.
@@ -39,15 +43,15 @@ def no_bulk_option():
         help="Use a custom space and time-efficient bulk reader (only gzip and no compression).",
     )
 
-def compression_option(default, choices):
+def compression_option(choices):
     """
     Option for specifying the compression type.
     """
     return click.option(
         "--compression",
-        default=default,
+        default=choices[0],
         type=click.Choice(choices, case_sensitive=False),
-        help=f"Compress the output file (default: {default}).",
+        help=f"Compress the output file (default: {choices[0]}).",
     )
 
 def output_dir_option(default="."):
