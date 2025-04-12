@@ -9,7 +9,7 @@ __alll__ = [
     "yes_option",
 ]
 
-JSONL_COMPRESSIONS = ["infer", "none", "pigz", "gzip", "bz2", "xz"]
+JSONL_COMPRESSIONS = ["infer", "none", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zip", "zstd"]
 MDS_COMPRESSIONS = ["none", "br", "bz2", "gzip", "pigz", "snappy", "zstd"]
 PARQUET_COMPRESSIONS = ["snappy", "gzip", "zstd"]
 

@@ -1,16 +1,19 @@
 import bz2
 import click
 from datasets import concatenate_datasets
-import gzip
+from isal import igzip as gzip
 import json
+import lz4
 import lzma
 from mltiming import timing
 import pyarrow as pa
 import pyarrow.parquet as pq
 import os
 import shutil
+import snappy
 from streaming import MDSWriter, StreamingDataset
 from tqdm import tqdm
+import zipfile
 import zstandard
 
 from .mds import MDSBulkReader
@@ -105,12 +108,18 @@ def _infer_mds_encoding(value):
 def _infer_compression(file_path):
     """Infer the compression type from the file extension."""
     extension = os.path.splitext(file_path)[1]
+    if extension.endswith('.bz2'):
+        return 'bz2'
     if extension.endswith('.gz'):
         if _pigz_available():
             return 'pigz'
         return 'gzip'
-    if extension.endswith('.bz2'):
-        return 'bz2'
+    if extension.endswith('.lz4'):
+        return 'lz4'
+    if extension.endswith('.lzma'):
+        return 'lzma'
+    if extension.endswith('.snappy'):
+        return 'snappy'
     if extension.endswith('.xz'):
         return 'xz'
     if extension.endswith('.zip'):
@@ -151,8 +160,14 @@ def _open_jsonl(file_path, mode="rt", compression="infer", processes=64):
         return pigz_open(file_path, mode, processes=processes) if mode[0] == "w" else gzip.open(file_path, mode)
     if compression == "bz2":
         return bz2.open(file_path, mode)
-    if compression == "xz":
+    if compression == "lz4":
+        return lz4.frame.open(file_path, mode)
+    if compression in ("lzma", "xz"):
         return lzma.open(file_path, mode)
+    if compression == "snappy":
+        return snappy.open(file_path, mode)
+    if compression == "zip":
+        return zipfile.ZipFile(file_path, mode)
     if compression == "zstd":
         return zstandard.open(file_path, mode)
     if compression is None:

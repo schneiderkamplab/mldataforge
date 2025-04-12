@@ -21,6 +21,8 @@ classifiers = [
 dependencies = [
     'click',
     'datasets',
+    'isal',
+    'lz4',
     'mltiming',
     'mosaicml-streaming',
     'zstandard'
