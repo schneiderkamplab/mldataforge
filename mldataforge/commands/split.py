@@ -1,6 +1,7 @@
 import click
 from datasets import load_dataset
 
+from ..compression import *
 from ..options import *
 from ..utils import *
 
@@ -22,7 +23,7 @@ def split():
 def jsonl(jsonl_files, prefix, output_dir, size_hint, compression, processes, overwrite, yes):
     save_jsonl(
         load_dataset("json", data_files=jsonl_files, split="train"),
-        output_file=f"{output_dir}/{prefix}{{part:04d}}.jsonl{extension(compression, jsonl_files[0])}",
+        output_file=f"{output_dir}/{prefix}{{part:04d}}.jsonl{extension_compression(compression, jsonl_files[0])}",
         compression=compression,
         processes=processes,
         size_hint=size_hint,

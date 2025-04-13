@@ -1,17 +1,20 @@
 import click
 
-__alll__ = [
+from .compression import JSONL_COMPRESSIONS, MDS_COMPRESSIONS, PARQUET_COMPRESSIONS
+
+__all__ = [
     "batch_size_option",
     "buf_size_option",
     "compression_option",
+    "no_bulk_option",
+    "output_dir_option",
     "overwrite_option",
     "processes_option",
+    "prefix_option",
+    "shard_size_option",
+    "size_hint_option",
     "yes_option",
 ]
-
-JSONL_COMPRESSIONS = ["infer", "none", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zip", "zstd"]
-MDS_COMPRESSIONS = ["none", "br", "bz2", "gzip", "pigz", "snappy", "zstd"]
-PARQUET_COMPRESSIONS = ["snappy", "gzip", "zstd"]
 
 def batch_size_option(default=2**16):
     """

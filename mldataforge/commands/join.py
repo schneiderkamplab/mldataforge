@@ -1,6 +1,7 @@
 import click
 from datasets import load_dataset
 
+from ..compression import *
 from ..options import *
 from ..utils import *
 
@@ -17,7 +18,9 @@ def join():
 @processes_option()
 @overwrite_option()
 @yes_option()
-def jsonl(output_file, jsonl_files, compression, processes, overwrite, yes):
+def jsonl(**kwargs):
+    join_jsonl(**kwargs)
+def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes):
     check_arguments(output_file, overwrite, yes, jsonl_files)
     save_jsonl(
         load_dataset("json", data_files=jsonl_files, split="train"),
@@ -36,7 +39,9 @@ def jsonl(output_file, jsonl_files, compression, processes, overwrite, yes):
 @batch_size_option()
 @buf_size_option()
 @no_bulk_option()
-def mds(output_dir, mds_directories, compression, processes, overwrite, yes, batch_size, buf_size, no_bulk):
+def mds(**kwargs):
+    join_mds(**kwargs)
+def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes, batch_size, buf_size, no_bulk):
     check_arguments(output_dir, overwrite, yes, mds_directories)
     save_mds(
         load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk),
@@ -54,7 +59,9 @@ def mds(output_dir, mds_directories, compression, processes, overwrite, yes, bat
 @overwrite_option()
 @yes_option()
 @batch_size_option()
-def parquet(output_file, parquet_files, compression, overwrite, yes, batch_size):
+def parquet(**kwargs):
+    join_parquet(**kwargs)
+def join_parquet(output_file, parquet_files, compression, overwrite, yes, batch_size):
     check_arguments(output_file, overwrite, yes, parquet_files)
     save_parquet(
         load_dataset("parquet", data_files=parquet_files, split="train"),

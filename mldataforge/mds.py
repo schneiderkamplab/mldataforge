@@ -6,6 +6,9 @@ import os
 from streaming.base.format.mds.encodings import mds_decode
 from typing import Any, Optional, Generator
 
+from .options import MDS_COMPRESSIONS
+from .utils import open_compression
+
 class MDSBulkReader:
     def __init__(
         self,
@@ -42,13 +45,9 @@ class MDSShardReader:
         filename: str,
         compression: Optional[str],
     ) -> None:
-        if compression is None:
-            _open = open
-        elif compression == 'gz':
-            _open = gzip.open
-        else:
-            raise ValueError(f'Unsupported compression type: {compression}. Supported types: None, gzip.')
-        self.fp = _open(filename, "rb")
+        if compression not in MDS_COMPRESSIONS:
+            raise ValueError(f"Unsupported compression: {compression}")        
+        self.fp = open_compression(filename, "rb", compression=compression)
         self.samples = np.frombuffer(self.fp.read(4), np.uint32)[0]
         self.index = np.frombuffer(self.fp.read((1+self.samples)*4), np.uint32)
         info = json.loads(self.fp.read(self.index[0]-self.fp.tell()))

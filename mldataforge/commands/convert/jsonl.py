@@ -1,6 +1,7 @@
 import click
 from datasets import load_dataset
 
+from ...compression import *
 from ...options import *
 from ...utils import *
 

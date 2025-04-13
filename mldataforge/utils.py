@@ -1,37 +1,28 @@
-import bz2
 import click
 from datasets import concatenate_datasets
-from isal import igzip as gzip
 import json
-import lz4
-import lzma
 from mltiming import timing
 import pyarrow as pa
 import pyarrow.parquet as pq
 import os
 import shutil
-import snappy
 from streaming import MDSWriter, StreamingDataset
 from tqdm import tqdm
-import zipfile
-import zstandard
 
+from .compression import determine_compression, open_compression, pigz_compress
 from .mds import MDSBulkReader
 from .pigz import pigz_open
 
 __all__ = [
-    "batch_iterable",
     "check_arguments",
     "confirm_overwrite",
-    "extension",
     "load_mds_directories",
     "save_jsonl",
     "save_mds",
     "save_parquet",
-    "use_pigz",
 ]
 
-def batch_iterable(iterable, batch_size):
+def _batch_iterable(iterable, batch_size):
     batch = []
     for item in iterable:
         batch.append(item)
@@ -68,31 +59,6 @@ def confirm_overwrite(message):
     if response.lower() != 'yes':
         raise click.Abort()
 
-def _determine_compression(file_path, compression="infer"):
-    if compression == "infer":
-        compression = _infer_compression(file_path)
-    if compression == "none":
-        compression = None
-    return compression
-
-def extension(compression, file_path):
-    """Get the file extension for the given compression type."""
-    if compression == "infer":
-        compression = _infer_compression(file_path)
-    if compression in ("gzip", "pigz"):
-        return ".gz"
-    if compression == "bz2":
-        return ".bz2"
-    if compression == "xz":
-        return ".xz"
-    if compression == "zip":
-        return ".zip"
-    if compression == "zstd":
-        return ".zst"
-    if compression is None:
-        return ""
-    raise ValueError(f"Unsupported compression type: {compression}")
-
 def _infer_mds_encoding(value):
     """Determine the MDS encoding for a given value."""
     if isinstance(value, str):
@@ -104,29 +70,6 @@ def _infer_mds_encoding(value):
     if isinstance(value, bool):
         return 'bool'
     return 'pkl'
-
-def _infer_compression(file_path):
-    """Infer the compression type from the file extension."""
-    extension = os.path.splitext(file_path)[1]
-    if extension.endswith('.bz2'):
-        return 'bz2'
-    if extension.endswith('.gz'):
-        if _pigz_available():
-            return 'pigz'
-        return 'gzip'
-    if extension.endswith('.lz4'):
-        return 'lz4'
-    if extension.endswith('.lzma'):
-        return 'lzma'
-    if extension.endswith('.snappy'):
-        return 'snappy'
-    if extension.endswith('.xz'):
-        return 'xz'
-    if extension.endswith('.zip'):
-        return 'zip'
-    if extension.endswith('.zst'):
-        return 'zstd'
-    return None
 
 def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True):
     if bulk:
@@ -151,58 +94,15 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
             ds = concatenate_datasets(dsets=dss)
     return ds
 
-def _open_jsonl(file_path, mode="rt", compression="infer", processes=64):
-    """Open a JSONL file, handling gzip compression if necessary."""
-    compression = _determine_compression(file_path, compression)
-    if compression == "gzip":
-        return gzip.open(file_path, mode)
-    if compression == "pigz":
-        return pigz_open(file_path, mode, processes=processes) if mode[0] == "w" else gzip.open(file_path, mode)
-    if compression == "bz2":
-        return bz2.open(file_path, mode)
-    if compression == "lz4":
-        return lz4.frame.open(file_path, mode)
-    if compression in ("lzma", "xz"):
-        return lzma.open(file_path, mode)
-    if compression == "snappy":
-        return snappy.open(file_path, mode)
-    if compression == "zip":
-        return zipfile.ZipFile(file_path, mode)
-    if compression == "zstd":
-        return zstandard.open(file_path, mode)
-    if compression is None:
-        return open(file_path, mode)
-    raise ValueError(f"Unsupported compression type: {compression}")
-
-def _pigz_available():
-    """Check if pigz is available on the system."""
-    return shutil.which("pigz") is not None
-
-def _pigz_compress(input_file, output_file, processes=64, buf_size=2**24, keep=False, quiet=False):
-    """Compress a file using pigz."""
-    size = os.stat(input_file).st_size
-    num_blocks = (size+buf_size-1) // buf_size
-    with open(input_file, "rb") as f_in, pigz_open(output_file, "wb", processes=processes) as f_out:
-        for _ in tqdm(range(num_blocks), desc="Compressing with pigz", unit="block", disable=quiet):
-            buf = f_in.read(buf_size)
-            assert buf
-            f_out.write(buf)
-        buf = f_in.read()
-        assert not buf
-    if not keep:
-        os.remove(input_file)
-        if not quiet:
-            print(f"Removed {input_file}")
-
 def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=None, overwrite=True, yes=True):
-    compression = _determine_compression(output_file, compression)
+    compression = determine_compression(output_file, compression)
     f = None
     part = 0
     for item in tqdm(iterable, desc="Writing to JSONL", unit="sample"):
         if f is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
-            f = _open_jsonl(part_file, mode="wb", compression=compression, processes=processes)
+            f = open_compression(part_file, mode="wb", compression=compression, processes=processes)
         f.write(f"{json.dumps(item)}\n".encode("utf-8"))
         if size_hint is not None and f.tell() >= size_hint:
             f.close()
@@ -216,6 +116,8 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
         compression = None
     if compression == "gzip":
         compression = "gz"
+    if compression == "brotli":
+        compression = "br"
     writer = None
     part = 0
     files = []
@@ -247,7 +149,7 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
                 compressed_file_name = file_name + ".gz"
                 file_path = os.path.join(output_dir, file_name)
                 compressed_file_path = os.path.join(output_dir, compressed_file_name)
-                _pigz_compress(file_path, compressed_file_path, processes, buf_size=buf_size, keep=False, quiet=True)
+                pigz_compress(file_path, compressed_file_path, processes, buf_size=buf_size, keep=False, quiet=True)
                 name2info[file_name]["compression"] = "gz"
                 name2info[file_name]["zip_data"] = {
                     "basename": compressed_file_name,
@@ -261,7 +163,7 @@ def save_parquet(it, output_file, compression=None, batch_size=2**16, size_hint=
     writer = None
     part = 0
     it = tqdm(it, desc="Writing to Parquet", unit="sample")
-    for batch in batch_iterable(it, batch_size):
+    for batch in _batch_iterable(it, batch_size):
         table = pa.Table.from_pylist(batch)
         if writer is None:
             part_file = output_file.format(part=part)
@@ -276,7 +178,3 @@ def save_parquet(it, output_file, compression=None, batch_size=2**16, size_hint=
             writer = None
     if writer is not None:
         writer.close()
-
-def use_pigz(compression):
-    """Determine if pigz should be used based on the compression type."""
-    return compression == "pigz" or (compression == "gzip" and _pigz_available())

@@ -1,25 +1,6 @@
 from click.testing import CliRunner
-from huggingface_hub import hf_hub_download
 from mldataforge.commands import cli
-from pathlib import Path
 import pytest
-
-@pytest.fixture
-def tmp_dir():
-    tmp_dir = Path(__file__).resolve().parent / "tmp"
-    tmp_dir.mkdir(exist_ok=True)
-    if not (tmp_dir / "test.parquet").exists():
-        hf_hub_download(
-            repo_type="dataset",
-            repo_id="jlpang888/tulu_300k",
-            revision="main",
-            filename="data/train-00000-of-00001.parquet",
-            local_dir=tmp_dir,
-        )
-        (tmp_dir / "data/train-00000-of-00001.parquet").rename(
-            tmp_dir / "test.parquet"
-        )
-    return tmp_dir
 
 @pytest.mark.dependency(name="conversion")
 @pytest.mark.parametrize("src_fmt,target_fmt,out_file,in_file", [
