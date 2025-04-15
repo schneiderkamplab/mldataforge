@@ -95,7 +95,6 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
     return ds
 
 def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=None, overwrite=True, yes=True):
-    compression = determine_compression(output_file, compression)
     f = None
     part = 0
     for item in tqdm(iterable, desc="Writing to JSONL", unit="sample"):
@@ -111,13 +110,8 @@ def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=
     if f is not None:
         f.close()
 
-def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pigz=False, shard_size=None, size_hint=None, overwrite=True, yes=True):
-    if compression == "none" or pigz:
-        compression = None
-    if compression == "gzip":
-        compression = "gz"
-    if compression == "brotli":
-        compression = "br"
+def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pigz=True, shard_size=None, size_hint=None, overwrite=True, yes=True):
+    compression = determine_compression("mds", output_dir, compression, no_pigz=not pigz)
     writer = None
     part = 0
     files = []
@@ -160,6 +154,7 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
             print(f"Compressed {output_dir} with pigz")
 
 def save_parquet(it, output_file, compression=None, batch_size=2**16, size_hint=None, overwrite=True, yes=True):
+    compression = determine_compression("parquet", output_file, compression)
     writer = None
     part = 0
     it = tqdm(it, desc="Writing to Parquet", unit="sample")

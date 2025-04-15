@@ -4,12 +4,13 @@ import lz4
 import lzma
 import os
 import shutil
-import snappy
 from tqdm import tqdm
 import zipfile
 import zstandard
 
+from .brotli import brotli_open
 from .pigz import pigz_open
+from .snappy import snappy_open
 
 __all__ = [
     "JSONL_COMPRESSIONS",
@@ -24,42 +25,75 @@ __all__ = [
     "use_pigz",
 ]
 
-JSONL_COMPRESSIONS = ["infer", "none", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zip", "zstd"]
-MDS_COMPRESSIONS = [None, "none", "brotli", "bz2", "gzip", "pigz", "snappy", "zstd"]
-PARQUET_COMPRESSIONS = ["snappy", "brotli", "gzip", "lz4", "zstd"]
+JSONL_COMPRESSIONS = dict(
+    default="infer",
+    choices=["inder", "none", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
+)
+MDS_COMPRESSIONS = dict(
+    default=None,
+    choices=["none", "brotli", "bz2", "gzip", "pigz", "snappy", "zstd"],
+)
+PARQUET_COMPRESSIONS = dict(
+    default="snappy",
+    choices=["snappy", "brotli", "gzip", "lz4", "zstd"],
+)
 
-def determine_compression(file_path, compression="infer"):
-    if compression == "infer":
-        compression = infer_compression(file_path)
+def determine_compression(fmt, file_path, compression="infer", no_pigz=False):
     if compression == "none":
-        compression = None
-    return compression
+        return None
+    if fmt == "jsonl":
+        if compression == "infer":
+            compression = infer_compression(file_path)
+        if compression == "brotli":
+            return "br"
+        return compression
+    if fmt == "mds":
+        if compression == "infer":
+            raise ValueError()
+        if compression == "pigz" or (not no_pigz and compression == "gzip" and pigz_available()):
+            return None
+        if compression == "gzip":
+            return "gz"
+        if compression == "brotli":
+            return "br"
+        return compression
+    if fmt == "parquet":
+        return compression
+    raise ValueError(f"Unsupported format: {format}")
 
 def extension_compression(compression, file_path):
     """Get the file extension for the given compression type."""
     if compression == "infer":
         compression = infer_compression(file_path)
-    if compression in ("gzip", "pigz"):
-        return ".gz"
+    if compression == "brotli":
+        return ".br"
     if compression == "bz2":
         return ".bz2"
+    if compression in ("gzip", "pigz"):
+        return ".gz"
+    if compression == "lz4":
+        return ".lz4"
+    if compression == "lzma":
+        return ".lzma"
+    if compression == "snappy":
+        return ".snappy"
     if compression == "xz":
         return ".xz"
-    if compression == "zip":
-        return ".zip"
     if compression == "zstd":
         return ".zst"
-    if compression is None:
+    if compression is None or compression == "none":
         return ""
     raise ValueError(f"Unsupported compression type: {compression}")
 
-def infer_compression(file_path):
+def infer_compression(file_path, pigz=True):
     """Infer the compression type from the file extension."""
     extension = os.path.splitext(file_path)[1]
+    if extension.endswith('.br'):
+        return 'brotli'
     if extension.endswith('.bz2'):
         return 'bz2'
     if extension.endswith('.gz'):
-        if pigz_available():
+        if pigz and pigz_available():
             return 'pigz'
         return 'gzip'
     if extension.endswith('.lz4'):
@@ -77,8 +111,11 @@ def infer_compression(file_path):
     return None
 
 def open_compression(file_path, mode="rt", compression="infer", processes=64):
-    """Open a file, handling gzip compression if necessary."""
-    compression = determine_compression(file_path, compression)
+    """Open a file, handling compression if necessary."""
+    if compression == "infer":
+        compression = infer_compression(file_path)
+    if compression == "brotli":
+        return brotli_open(file_path, mode)
     if compression == "gzip":
         return gzip.open(file_path, mode)
     if compression == "pigz":
@@ -90,12 +127,10 @@ def open_compression(file_path, mode="rt", compression="infer", processes=64):
     if compression in ("lzma", "xz"):
         return lzma.open(file_path, mode)
     if compression == "snappy":
-        return snappy.open(file_path, mode)
-    if compression == "zip":
-        return zipfile.ZipFile(file_path, mode)
+        return snappy_open(file_path, mode)
     if compression == "zstd":
         return zstandard.open(file_path, mode)
-    if compression is None:
+    if compression is None or compression == "none":
         return open(file_path, mode)
     raise ValueError(f"Unsupported compression type: {compression}")
 
@@ -119,6 +154,6 @@ def pigz_compress(input_file, output_file, processes=64, buf_size=2**24, keep=Fa
         if not quiet:
             print(f"Removed {input_file}")
 
-def use_pigz(compression):
+def use_pigz(compression, no_pigz=False):
     """Determine if pigz should be used based on the compression type."""
-    return compression == "pigz" or (compression == "gzip" and pigz_available())
+    return compression == "pigz" or (not no_pigz and compression == "gzip" and pigz_available())

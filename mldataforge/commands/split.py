@@ -44,14 +44,15 @@ def jsonl(jsonl_files, prefix, output_dir, size_hint, compression, processes, ov
 @batch_size_option()
 @no_bulk_option()
 @shard_size_option()
-def mds(mds_directories, prefix, output_dir, size_hint, compression, processes, overwrite, yes, buf_size, batch_size, no_bulk, shard_size):
+@no_pigz_option()
+def mds(mds_directories, prefix, output_dir, size_hint, compression, processes, overwrite, yes, buf_size, batch_size, no_bulk, shard_size, no_pigz):
     save_mds(
         load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk),
         output_dir=f"{output_dir}/{prefix}{{part:04d}}",
         processes=processes,
         compression=compression,
         buf_size=buf_size,
-        pigz=use_pigz(compression),
+        pigz=use_pigz(compression, no_pigz),
         shard_size=shard_size,
         size_hint=size_hint,
         overwrite=overwrite,

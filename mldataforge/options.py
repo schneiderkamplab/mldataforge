@@ -7,6 +7,7 @@ __all__ = [
     "buf_size_option",
     "compression_option",
     "no_bulk_option",
+    "no_pigz_option",
     "output_dir_option",
     "overwrite_option",
     "processes_option",
@@ -46,15 +47,25 @@ def no_bulk_option():
         help="Use a custom space and time-efficient bulk reader (only gzip and no compression).",
     )
 
-def compression_option(choices):
+def no_pigz_option():
+    """
+    Option for specifying whether to use pigz compression.
+    """
+    return click.option(
+        "--no-pigz",
+        is_flag=True,
+        help="Do not use pigz compression.",
+    )
+
+def compression_option(args):
     """
     Option for specifying the compression type.
     """
     return click.option(
         "--compression",
-        default=choices[0],
-        type=click.Choice(choices, case_sensitive=False),
-        help=f"Compress the output file (default: {choices[0]}).",
+        default=args["default"],
+        type=click.Choice(args["choices"], case_sensitive=False),
+        help=f'Compress the output file (default: {args["default"]}).',
     )
 
 def output_dir_option(default="."):

@@ -45,7 +45,7 @@ class MDSShardReader:
         filename: str,
         compression: Optional[str],
     ) -> None:
-        if compression not in MDS_COMPRESSIONS:
+        if compression is not None and compression not in MDS_COMPRESSIONS["choices"]:
             raise ValueError(f"Unsupported compression: {compression}")        
         self.fp = open_compression(filename, "rb", compression=compression)
         self.samples = np.frombuffer(self.fp.read(4), np.uint32)[0]
