@@ -1,7 +1,8 @@
 from mldataforge.commands.join import join_jsonl, join_mds, join_parquet
-from mldataforge.commands.convert.jsonl import jsonl_to_mds
+from mldataforge.commands.convert.jsonl import jsonl_to_parquet
 from mldataforge.commands.convert.mds import mds_to_parquet
 from mldataforge.commands.convert.parquet import parquet_to_jsonl
+import filecmp
 import pytest
 
 @pytest.mark.dependency(depends=["conversion"])
@@ -53,6 +54,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             batch_size=2**10,
             buf_size=2**14,
             no_bulk=False,
+            shard_size=2**10,
             no_pigz=True,
         )
     elif fmt == "parquet":
@@ -95,17 +97,15 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
 ])
 def test_decompression(fmt, out_file, in_file, tmp_dir):
     if fmt == "jsonl":
-        jsonl_to_mds(
-            output_dir=str(tmp_dir / out_file),
+        jsonl_to_parquet(
+            output_file=str(tmp_dir / out_file),
             jsonl_files=[str(tmp_dir / in_file)],
-            compression=None,
-            processes=64,
+            compression="snappy",
             overwrite=True,
             yes=True,
-            buf_size=2**14,
-            shard_size=2**10,
-            no_pigz=True,
+            batch_size=2**10,
         )
+        assert filecmp.cmp(str(tmp_dir / "test.parquet"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to input file {in_file}"
     elif fmt == "mds":
         mds_to_parquet(
             output_file=str(tmp_dir / out_file),
@@ -116,6 +116,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir):
             batch_size=2**10,
             no_bulk=False,
         )
+        assert filecmp.cmp(str(tmp_dir / "test.parquet"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to input file {in_file}"
     elif fmt == "parquet":
         parquet_to_jsonl(
             output_file=str(tmp_dir / out_file),
@@ -125,6 +126,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir):
             overwrite=True,
             yes=True,
         )
+        assert filecmp.cmp(str(tmp_dir / "test.none.jsonl"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to input file {in_file}"
     assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"
     if (tmp_dir / out_file).is_file():
         assert (tmp_dir / out_file).stat().st_size > 2**14, f"Output file {out_file} is too small"
