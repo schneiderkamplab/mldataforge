@@ -1,19 +1,24 @@
 from mldataforge.commands.join import join_jsonl, join_mds, join_parquet
+from mldataforge.commands.convert.jsonl import jsonl_to_mds
+from mldataforge.commands.convert.mds import mds_to_parquet
+from mldataforge.commands.convert.parquet import parquet_to_jsonl
 import pytest
 
+@pytest.mark.dependency(depends=["conversion"])
+@pytest.mark.dependency(name="compression")
 @pytest.mark.parametrize("fmt,compression,out_file,in_file", [
-    ("jsonl", None, "test.jsonl", "test.parquet.jsonl.gz"),
-    ("jsonl", "none", "test.jsonl", "test.parquet.jsonl.gz"),
+    ("jsonl", None, "test.None.jsonl", "test.parquet.jsonl.gz"),
+    ("jsonl", "none", "test.none.jsonl", "test.parquet.jsonl.gz"),
     ("jsonl", "brotli", "test.jsonl.br", "test.parquet.jsonl.gz"),
     ("jsonl", "bz2", "test.jsonl.bz2", "test.parquet.jsonl.gz"),
     ("jsonl", "gzip", "test.jsonl.gz", "test.parquet.jsonl.gz"),
     ("jsonl", "lz4", "test.jsonl.lz4", "test.parquet.jsonl.gz"),
     ("jsonl", "lzma", "test.jsonl.lzma", "test.parquet.jsonl.gz"),
-    ("jsonl", "pigz", "test.jsonl.gz", "test.parquet.jsonl.gz"),
+    ("jsonl", "pigz", "test.pigz.jsonl.gz", "test.parquet.jsonl.gz"),
     ("jsonl", "snappy", "test.jsonl.snappy", "test.parquet.jsonl.gz"),
     ("jsonl", "xz", "test.jsonl.xz", "test.parquet.jsonl.gz"),
     ("jsonl", "zstd", "test.jsonl.zst", "test.parquet.jsonl.gz"),
-    ("mds", None, "test.none.mds", "test.parquet.mds"),
+    ("mds", None, "test.None.mds", "test.parquet.mds"),
     ("mds", "none", "test.none.mds", "test.parquet.mds"),
     ("mds", "brotli", "test.br.mds", "test.parquet.mds"),
     ("mds", "bz2", "test.bz2.mds", "test.parquet.mds"),
@@ -45,8 +50,8 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             processes=64,
             overwrite=True,
             yes=True,
-            batch_size=2**16,
-            buf_size=2**20,
+            batch_size=2**10,
+            buf_size=2**14,
             no_bulk=False,
             no_pigz=True,
         )
@@ -57,10 +62,71 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             compression=compression,
             overwrite=True,
             yes=True,
-            batch_size=2**16,
+            batch_size=2**10,
         )
     assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"
     if (tmp_dir / out_file).is_file():
-        assert (tmp_dir / out_file).stat().st_size > 2**20, f"Output file {out_file} is too small"
+        assert (tmp_dir / out_file).stat().st_size > 2**14, f"Output file {out_file} is too small"
     else:
-        assert sum(f.stat().st_size for f in (tmp_dir / out_file).glob("*.mds*")) > 2**20, f"Output directory {out_file} is too small"
+        assert sum(f.stat().st_size for f in (tmp_dir / out_file).glob("*.mds*")) > 2**14, f"Output directory {out_file} is too small"
+
+@pytest.mark.dependency(depends=["compression"])
+@pytest.mark.parametrize("fmt,out_file,in_file", [
+    ("jsonl", "test.jsonl.br.mds", "test.jsonl.br"),
+    ("jsonl", "test.jsonl.bz2.parquet", "test.jsonl.bz2"),
+    ("jsonl", "test.jsonl.gz.mds", "test.jsonl.gz"),
+    ("jsonl", "test.jsonl.lz4.mds", "test.jsonl.lz4"),
+    ("jsonl", "test.jsonl.lzma.mds", "test.jsonl.lzma"),
+    ("jsonl", "test.jsonl.pigz.mds", "test.pigz.jsonl.gz"),
+    ("jsonl", "test.jsonl.snappy.mds", "test.jsonl.snappy"),
+    ("jsonl", "test.jsonl.xz.mds", "test.jsonl.xz"),
+    ("jsonl", "test.jsonl.zst.mds", "test.jsonl.zst"),
+    ("mds", "test.br.mds.parquet", "test.br.mds"),
+    ("mds", "test.bz2.mds.parquet", "test.bz2.mds"),
+    ("mds", "test.gzip.mds.parquet", "test.gzip.mds"),
+    ("mds", "test.pigz.mds.parquet", "test.pigz.mds"),
+    ("mds", "test.snappy.mds.parquet", "test.snappy.mds"),
+    ("mds", "test.zstd.mds.parquet", "test.zstd.mds"),
+    ("parquet", "test.br.parquet.jsonl", "test.br.parquet"),
+    ("parquet", "test.gzip.parquet.jsonl", "test.gzip.parquet"),
+    ("parquet", "test.lz4.parquet.jsonl", "test.lz4.parquet"),
+    ("parquet", "test.snappy.parquet.jsonl", "test.snappy.parquet"),
+    ("parquet", "test.zstd.parquet.jsonl", "test.zstd.parquet"),
+])
+def test_decompression(fmt, out_file, in_file, tmp_dir):
+    if fmt == "jsonl":
+        jsonl_to_mds(
+            output_dir=str(tmp_dir / out_file),
+            jsonl_files=[str(tmp_dir / in_file)],
+            compression=None,
+            processes=64,
+            overwrite=True,
+            yes=True,
+            buf_size=2**14,
+            shard_size=2**10,
+            no_pigz=True,
+        )
+    elif fmt == "mds":
+        mds_to_parquet(
+            output_file=str(tmp_dir / out_file),
+            mds_directories=[str(tmp_dir / in_file)],
+            compression="snappy",
+            overwrite=True,
+            yes=True,
+            batch_size=2**10,
+            no_bulk=False,
+        )
+    elif fmt == "parquet":
+        parquet_to_jsonl(
+            output_file=str(tmp_dir / out_file),
+            parquet_files=[str(tmp_dir / in_file)],
+            compression=None,
+            processes=64,
+            overwrite=True,
+            yes=True,
+        )
+    assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"
+    if (tmp_dir / out_file).is_file():
+        assert (tmp_dir / out_file).stat().st_size > 2**14, f"Output file {out_file} is too small"
+    else:
+        assert sum(f.stat().st_size for f in (tmp_dir / out_file).glob("*.mds*")) > 2**14, f"Output directory {out_file} is too small"

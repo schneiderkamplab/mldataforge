@@ -1,10 +1,15 @@
-import brotli
+import brotlicffi as brotli
 import io
 
 __all__ = ["brotli_open"]
 
-def brotli_open(filename, mode='rb', encoding='utf-8'):
-    return BrotliFile(filename, mode=mode, encoding=encoding)
+def brotli_open(filename, mode='rb', encoding='utf-8', compress_level=11):
+    return BrotliFile(filename, mode=mode, encoding=encoding, compress_level=11)
+
+import brotlicffi as brotli
+import io
+
+__all__ = ["brotli_open"]
 
 class BrotliFile:
     def __init__(self, filename, mode='rb', encoding='utf-8', compress_level=11):
@@ -13,70 +18,65 @@ class BrotliFile:
         self.encoding = encoding
         self.compress_level = compress_level
 
-        if 'b' not in mode:
-            self.binary = False
-            mode = mode.replace('t', 'b')
-        else:
-            self.binary = True
-
-        self.file = open(filename, mode)
+        self.binary = 'b' in mode
+        file_mode = mode.replace('t', 'b')
+        self.file = open(filename, file_mode)
 
         if 'r' in mode:
-            self.decompressor = brotli.Decompressor()
-            self._stream = self._make_reader()
+            self._decompressor = brotli.Decompressor()
+            self._stream = self._wrap_reader()
         elif 'w' in mode:
-            self.compressor = brotli.Compressor(quality=compress_level)
-            self._stream = self._make_writer()
+            self._compressor = brotli.Compressor(quality=compress_level)
+            self._stream = self._wrap_writer()
         else:
-            raise ValueError("Unsupported mode (use 'r' or 'w' with 'b' or 't')")
+            raise ValueError("Unsupported mode (use 'rb', 'wb', 'rt', or 'wt')")
 
-    def _make_reader(self):
+    def _wrap_reader(self):
         buffer = io.BytesIO()
+        while True:
+            chunk = self.file.read(8192)
+            if not chunk:
+                break
+            buffer.write(self._decompressor.process(chunk))
+        buffer.seek(0)
+        return buffer if self.binary else io.TextIOWrapper(buffer, encoding=self.encoding)
 
-        def generator():
-            while True:
-                chunk = self.file.read(8192)
-                if not chunk:
-                    break
-                decompressed = self.decompressor.decompress(chunk)
-                buffer.write(decompressed)
-            buffer.seek(0)
-            return buffer
-
-        byte_stream = generator()
-        return byte_stream if self.binary else io.TextIOWrapper(byte_stream, encoding=self.encoding)
-
-    def _make_writer(self):
-        writer = self if self.binary else io.TextIOWrapper(self, encoding=self.encoding)
-        return writer
+    def _wrap_writer(self):
+        return self if self.binary else io.TextIOWrapper(self, encoding=self.encoding)
 
     def write(self, data):
         if isinstance(data, str):
             data = data.encode(self.encoding)
-        compressed = self.compressor.process(data)
+        compressed = self._compressor.process(data)
         self.file.write(compressed)
+        return len(data)
 
     def flush(self):
-        if hasattr(self, 'compressor'):
-            self.file.write(self.compressor.finish())
+        if hasattr(self, '_compressor'):
+            self.file.write(self._compressor.finish())
         self.file.flush()
 
-    def read(self, size=-1):
-        return self._stream.read(size)
+    def read(self, *args, **kwargs):
+        return self._stream.read(*args, **kwargs)
 
-    def readline(self, size=-1):
-        return self._stream.readline(size)
+    def readline(self, *args, **kwargs):
+        return self._stream.readline(*args, **kwargs)
 
     def __iter__(self):
         return iter(self._stream)
 
     def close(self):
-        if hasattr(self, 'compressor'):
-            self.flush()
-        self.file.close()
+        try:
+            if hasattr(self._stream, 'flush'):
+                self._stream.flush()
+        finally:
+            self.file.close()
 
     def __enter__(self):
-        return self._stream
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    def tell(self):
+        return self._stream.tell()

@@ -5,7 +5,7 @@ from ...compression import *
 from ...options import *
 from ...utils import *
 
-__all__ = ["jsonl"]
+__all__ = ["jsonl_to_mds", "jsonl_to_parquet"]
 
 @click.group()
 def jsonl():
@@ -21,10 +21,12 @@ def jsonl():
 @buf_size_option()
 @shard_size_option()
 @no_pigz_option()
-def mds(output_dir, jsonl_files, compression, processes, overwrite, yes, buf_size, shard_size, no_pigz):
+def mds(**kwargs):
+    jsonl_to_mds(**kwargs)
+def jsonl_to_mds(output_dir, jsonl_files, compression, processes, overwrite, yes, buf_size, shard_size, no_pigz):
     check_arguments(output_dir, overwrite, yes, jsonl_files)
     save_mds(
-        load_dataset("json", data_files=jsonl_files, split="train"),
+        load_jsonl_files(jsonl_files),
         output_dir,
         processes=processes,
         compression=compression,
@@ -40,10 +42,12 @@ def mds(output_dir, jsonl_files, compression, processes, overwrite, yes, buf_siz
 @overwrite_option()
 @yes_option()
 @batch_size_option()
-def parquet(output_file, jsonl_files, compression, overwrite, yes, batch_size):
+def parquet(**kwargs):
+    jsonl_to_parquet(**kwargs)
+def jsonl_to_parquet(output_file, jsonl_files, compression, overwrite, yes, batch_size):
     check_arguments(output_file, overwrite, yes, jsonl_files)
     save_parquet(
-        load_dataset("json", data_files=jsonl_files, split="train"),
+        load_jsonl_files(jsonl_files),
         output_file,
         compression=compression,
         batch_size=batch_size,

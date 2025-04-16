@@ -1,5 +1,5 @@
 import click
-from datasets import concatenate_datasets
+from datasets import concatenate_datasets, load_dataset
 import json
 from mltiming import timing
 import pyarrow as pa
@@ -16,6 +16,7 @@ from .pigz import pigz_open
 __all__ = [
     "check_arguments",
     "confirm_overwrite",
+    "load_jsonl_files",
     "load_mds_directories",
     "save_jsonl",
     "save_mds",
@@ -70,6 +71,17 @@ def _infer_mds_encoding(value):
     if isinstance(value, bool):
         return 'bool'
     return 'pkl'
+
+def _streaming_jsonl(jsonl_files, compressions):
+    for jsonl_file, compression in tqdm(zip(jsonl_files, compressions), desc="Loading JSONL files", unit="file"):
+        for line in open_compression(jsonl_file, mode="rt", compression=compression):
+            yield json.loads(line)
+
+def load_jsonl_files(jsonl_files):
+    compressions = [determine_compression("jsonl", jsonl_file) for jsonl_file in jsonl_files]
+    if "br" in compressions or "snappy" in compressions:
+        return _streaming_jsonl(jsonl_files, compressions)
+    return load_dataset("json", data_files=jsonl_files, split="train")
 
 def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True):
     if bulk:

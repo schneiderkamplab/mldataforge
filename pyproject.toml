@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mldataforge"
-version = "0.1.4"
+version = "0.1.5"
 authors = [
   { name = "Peter Schneider-Kamp" }
 ]
@@ -19,13 +19,14 @@ classifiers = [
 ]
 
 dependencies = [
+    'brotlicffi',
     'click',
     'datasets',
     'isal',
     'lz4',
     'mltiming',
     'mosaicml-streaming',
-    'snappy',
+    'python-snappy',
     'zstandard'
 ]
 

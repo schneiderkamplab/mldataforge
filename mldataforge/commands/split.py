@@ -5,7 +5,7 @@ from ..compression import *
 from ..options import *
 from ..utils import *
 
-__all__ = ["split"]
+__all__ = ["split_jsonl", "split_mds", "split_parquet"]
 
 @click.group()
 def split():
@@ -22,7 +22,7 @@ def split():
 @yes_option()
 def jsonl(jsonl_files, prefix, output_dir, size_hint, compression, processes, overwrite, yes):
     save_jsonl(
-        load_dataset("json", data_files=jsonl_files, split="train"),
+        load_jsonl_files(jsonl_files),
         output_file=f"{output_dir}/{prefix}{{part:04d}}.jsonl{extension_compression(compression, jsonl_files[0])}",
         compression=compression,
         processes=processes,

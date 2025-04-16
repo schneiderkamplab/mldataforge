@@ -5,7 +5,7 @@ from ..compression import *
 from ..options import *
 from ..utils import *
 
-__all__ = ["join"]
+__all__ = ["join_jsonl", "join_mds", "join_parquet"]
 
 @click.group()
 def join():
@@ -23,7 +23,7 @@ def jsonl(**kwargs):
 def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes):
     check_arguments(output_file, overwrite, yes, jsonl_files)
     save_jsonl(
-        load_dataset("json", data_files=jsonl_files, split="train"),
+        load_jsonl_files(jsonl_files),
         output_file,
         compression=compression,
         processes=processes,

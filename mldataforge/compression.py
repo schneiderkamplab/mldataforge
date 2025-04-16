@@ -5,7 +5,6 @@ import lzma
 import os
 import shutil
 from tqdm import tqdm
-import zipfile
 import zstandard
 
 from .brotli import brotli_open
@@ -27,7 +26,7 @@ __all__ = [
 
 JSONL_COMPRESSIONS = dict(
     default="infer",
-    choices=["inder", "none", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
+    choices=["infer", "none", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
 )
 MDS_COMPRESSIONS = dict(
     default=None,
@@ -114,9 +113,9 @@ def open_compression(file_path, mode="rt", compression="infer", processes=64):
     """Open a file, handling compression if necessary."""
     if compression == "infer":
         compression = infer_compression(file_path)
-    if compression == "brotli":
+    if compression in ("brotli", "br"):
         return brotli_open(file_path, mode)
-    if compression == "gzip":
+    if compression in ("gzip", "gz"):
         return gzip.open(file_path, mode)
     if compression == "pigz":
         return pigz_open(file_path, mode, processes=processes) if mode[0] == "w" else gzip.open(file_path, mode)
