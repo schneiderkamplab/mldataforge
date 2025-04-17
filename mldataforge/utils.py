@@ -6,11 +6,11 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import os
 import shutil
-from streaming import MDSWriter, StreamingDataset
+from streaming import StreamingDataset
 from tqdm import tqdm
 
 from .compression import determine_compression, open_compression, pigz_compress
-from .mds import MDSBulkReader
+from .mds import MDSBulkReader, MDSWriter
 from .pigz import pigz_open
 
 __all__ = [

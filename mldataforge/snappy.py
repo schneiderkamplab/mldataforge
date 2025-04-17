@@ -36,49 +36,64 @@ class _SnappyWriteWrapper(io.RawIOBase):
     def writable(self):
         return True
 
-
 class _SnappyReadWrapper(io.RawIOBase):
     def __init__(self, fileobj):
         self.fileobj = fileobj
         self.buffer = io.BytesIO()
         self.eof = False
+        self._autodetect_format()
 
-    def _fill_buffer(self):
-        if self.eof:
-            return
+    def _autodetect_format(self):
+        self.fileobj.seek(0)
+        preview = self.fileobj.read()
+        try:
+            self._raw_decompressed = snappy.decompress(preview)
+            self._mode = "raw"
+            self.buffer = io.BytesIO(self._raw_decompressed)
+        except Exception:
+            self.fileobj.seek(0)
+            self._mode = "framed"
 
-        while True:
+    def _fill_buffer_if_needed(self, min_bytes):
+        self.buffer.seek(0, io.SEEK_END)
+        while not self.eof and self.buffer.tell() < min_bytes:
             length_bytes = self.fileobj.read(4)
             if not length_bytes:
                 self.eof = True
                 break
-
             if len(length_bytes) < 4:
-                raise IOError("Corrupted stream: incomplete chunk length")
-
-            length = struct.unpack(">I", length_bytes)[0]
-            compressed = self.fileobj.read(length)
-            if len(compressed) < length:
-                raise IOError("Corrupted stream: incomplete chunk data")
-
-            decompressed = snappy.decompress(compressed)
-            self.buffer.seek(0, io.SEEK_END)
-            self.buffer.write(decompressed)
-
-    def read(self, size=-1):
-        self._fill_buffer()
+                self.eof = True
+                break
+            try:
+                length = struct.unpack(">I", length_bytes)[0]
+                compressed = self.fileobj.read(length)
+                if len(compressed) < length:
+                    self.eof = True
+                    break
+                decompressed = snappy.decompress(compressed)
+                self.buffer.write(decompressed)
+            except Exception:
+                self.eof = True
+                break
         self.buffer.seek(0)
 
-        if size < 0:
-            data = self.buffer.read()
-            self.buffer = io.BytesIO()
-            return data
-
-        data = self.buffer.read(size)
-        rest = self.buffer.read()
-        self.buffer = io.BytesIO()
-        self.buffer.write(rest)
-        return data
+    def read(self, size=-1):
+        if self._mode == "raw":
+            return self.buffer.read(size)
+        else:
+            if size == -1:
+                while not self.eof:
+                    self._fill_buffer_if_needed(_CHUNK_SIZE)
+                result = self.buffer.read()
+                self.buffer = io.BytesIO()
+                return result
+            else:
+                self._fill_buffer_if_needed(size)
+                data = self.buffer.read(size)
+                rest = self.buffer.read()
+                self.buffer = io.BytesIO()
+                self.buffer.write(rest)
+                return data
 
     def readable(self):
         return True
@@ -86,6 +101,11 @@ class _SnappyReadWrapper(io.RawIOBase):
     def close(self):
         self.fileobj.close()
 
+    def tell(self):
+        return self.buffer.tell()
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        return self.buffer.seek(offset, whence)
 
 class SnappyFile:
     def __init__(self, filename, mode='rb', encoding='utf-8'):
