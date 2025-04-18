@@ -32,6 +32,11 @@ import pytest
     ("parquet", "lz4", "test.lz4.parquet", "test.parquet"),
     ("parquet", "snappy", "test.snappy.parquet", "test.parquet"),
     ("parquet", "zstd", "test.zstd.parquet", "test.parquet"),
+    ("mds", "sample::brotli", "test.sample::brotli.mds", "test.parquet.mds"),
+    ("mds", "sample::bz2", "test.sample::bz2.mds", "test.parquet.mds"),
+    ("mds", "sample::gzip", "test.sample::gzip.mds", "test.parquet.mds"),
+    ("mds", "sample::snappy", "test.sample::snappy.mds", "test.parquet.mds"),
+    ("mds", "sample::zstd", "test.sample::zstd.mds", "test.parquet.mds"),
 ])
 def test_compression(fmt, compression, out_file, in_file, tmp_dir):
     if fmt == "jsonl":
@@ -54,7 +59,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             batch_size=2**10,
             buf_size=2**14,
             no_bulk=False,
-            shard_size=2**10,
+            shard_size=2**14,
             no_pigz=True,
         )
     elif fmt == "parquet":
@@ -94,6 +99,11 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
     ("parquet", "test.lz4.parquet.jsonl", "test.lz4.parquet"),
     ("parquet", "test.snappy.parquet.jsonl", "test.snappy.parquet"),
     ("parquet", "test.zstd.parquet.jsonl", "test.zstd.parquet"),
+    ("mds", "test.sample::brotli.mds.parquet", "test.sample::brotli.mds"),
+    ("mds", "test.sample::bz2.mds.parquet", "test.sample::bz2.mds"),
+    ("mds", "test.sample::gzip.mds.parquet", "test.sample::gzip.mds"),
+    ("mds", "test.sample::snappy.mds.parquet", "test.sample::snappy.mds"),
+    ("mds", "test.sample::zstd.mds.parquet", "test.sample::zstd.mds"),
 ])
 def test_decompression(fmt, out_file, in_file, tmp_dir):
     if fmt == "jsonl":
@@ -114,7 +124,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir):
             overwrite=True,
             yes=True,
             batch_size=2**10,
-            no_bulk=False,
+            no_bulk=True,
         )
         assert filecmp.cmp(str(tmp_dir / "test.parquet"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to input file {in_file}"
     elif fmt == "parquet":

@@ -23,6 +23,11 @@ __all__ = [
     "save_parquet",
 ]
 
+_NO_PROGESS = False
+def set_progress(value):
+    global _NO_PROGESS
+    _NO_PROGESS = value
+
 def _batch_iterable(iterable, batch_size):
     batch = []
     for item in iterable:
@@ -73,7 +78,7 @@ def _infer_mds_encoding(value):
     return 'pkl'
 
 def _streaming_jsonl(jsonl_files, compressions):
-    for jsonl_file, compression in tqdm(zip(jsonl_files, compressions), desc="Loading JSONL files", unit="file"):
+    for jsonl_file, compression in tqdm(zip(jsonl_files, compressions), desc="Loading JSONL files", unit="file", disable=_NO_PROGESS):
         for line in open_compression(jsonl_file, mode="rt", compression=compression):
             yield json.loads(line)
 
@@ -109,7 +114,7 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
 def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=None, overwrite=True, yes=True):
     f = None
     part = 0
-    for item in tqdm(iterable, desc="Writing to JSONL", unit="sample"):
+    for item in tqdm(iterable, desc="Writing to JSONL", unit="sample", disable=_NO_PROGESS):
         if f is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
@@ -127,7 +132,7 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
     writer = None
     part = 0
     files = []
-    for sample in tqdm(it, desc="Writing to MDS", unit="sample"):
+    for sample in tqdm(it, desc="Writing to MDS", unit="sample", disable=_NO_PROGESS):
         if writer is None:
             part_dir = output_dir.format(part=part)
             check_arguments(part_dir, overwrite, yes)
@@ -151,7 +156,7 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
             name2info = {shard["raw_data"]["basename"]: shard for shard in index["shards"]}
             file_names = [file for file in os.listdir(output_dir) if file.endswith(".mds")]
             assert set(file_names) == set(name2info.keys())
-            for file_name in tqdm(file_names, desc="Compressing with pigz", unit="file"):
+            for file_name in tqdm(file_names, desc="Compressing with pigz", unit="file", disable=_NO_PROGESS):
                 compressed_file_name = file_name + ".gz"
                 file_path = os.path.join(output_dir, file_name)
                 compressed_file_path = os.path.join(output_dir, compressed_file_name)
@@ -169,7 +174,7 @@ def save_parquet(it, output_file, compression=None, batch_size=2**16, size_hint=
     compression = determine_compression("parquet", output_file, compression)
     writer = None
     part = 0
-    it = tqdm(it, desc="Writing to Parquet", unit="sample")
+    it = tqdm(it, desc="Writing to Parquet", unit="sample", disable=_NO_PROGESS)
     for batch in _batch_iterable(it, batch_size):
         table = pa.Table.from_pylist(batch)
         if writer is None:

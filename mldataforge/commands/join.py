@@ -53,7 +53,7 @@ def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes
         compression=compression,
         buf_size=buf_size,
         shard_size=shard_size,
-        pigz=use_pigz(compression, no_pigz)
+        pigz=use_pigz(compression, no_pigz),
     )
 
 @join.command()

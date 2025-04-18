@@ -30,7 +30,7 @@ JSONL_COMPRESSIONS = dict(
 )
 MDS_COMPRESSIONS = dict(
     default=None,
-    choices=["none", "brotli", "bz2", "gzip", "pigz", "snappy", "zstd"],
+    choices=["none", "brotli", "bz2", "gzip", "pigz", "snappy", "zstd", "sample::brotli", "sample::bz2", "sample::gzip", "sample::snappy", "sample::zstd"],
 )
 PARQUET_COMPRESSIONS = dict(
     default="snappy",
@@ -54,6 +54,10 @@ def determine_compression(fmt, file_path, compression="infer", no_pigz=False):
         if compression == "gzip":
             return "gz"
         if compression == "brotli":
+            return "br"
+        if compression == "sample::gzip":
+            return "gz"
+        if compression == "sample::brotli":
             return "br"
         return compression
     if fmt == "parquet":

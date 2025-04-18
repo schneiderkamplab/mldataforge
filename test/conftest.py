@@ -2,6 +2,10 @@ from huggingface_hub import hf_hub_download
 from pathlib import Path
 import pytest
 
+from mldataforge import utils
+
+utils._NO_PROGESS = True
+
 @pytest.fixture
 def tmp_dir():
     tmp_dir = Path(__file__).resolve().parent / "tmp"
