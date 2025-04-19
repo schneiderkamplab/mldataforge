@@ -1,18 +1,6 @@
 import re
 
-__all__ = ['IndexedDatasetView', 'Transformation', 'Transformations', 'flatten_json', 'unflatten_json']
-
-class IndexedDatasetView:
-    def __init__(self, dataset, indices):
-        self.dataset = dataset
-        self.indices = list(indices)  # ensure repeatable access
-
-    def __iter__(self):
-        for idx in self.indices:
-            yield self.dataset[idx]
-
-    def __len__(self):
-        return len(self.indices)
+__all__ = ['Transformation', 'Transformations', 'flatten_json', 'identity', 'unflatten_json']
 
 class Transformation:
     def __init__(self, code: str):
@@ -56,32 +44,22 @@ class Transformation:
             return self._last_input_len
         raise TypeError("Length is not available for this transformation.")
 
-
 class Transformations:
     def __init__(self, codes: list[str], indices=None):
         self.pipeline = [Transformation(code) for code in codes]
-        self.indices = indices  # Optional index iterable
 
     def __call__(self, dataset):
-        # Wrap dataset with IndexedDatasetView if indices are provided
-        if self.indices is not None:
-            dataset = IndexedDatasetView(dataset, self.indices)
-
         result = dataset
         for transform in self.pipeline:
             result = transform(result)
         return result
 
     def __len__(self):
-        # Return the input length to the pipeline
         if self.indices is not None:
             return len(self.indices)
         elif hasattr(self.pipeline[0], '_last_input_len') and self.pipeline[0]._last_input_len is not None:
             return self.pipeline[0]._last_input_len
         raise TypeError("Transformations length is not available until __call__ is used on a sized input.")
-
-def identity(obj):
-    return obj
 
 def flatten_json(obj, parent_key='', sep='.', escape_char='\\'):
     def escape(key):
@@ -109,6 +87,9 @@ def flatten_json(obj, parent_key='', sep='.', escape_char='\\'):
     else:
         items.append((parent_key, obj))
     return dict(items)
+
+def identity(obj):
+    return obj
 
 def unflatten_json(flat_dict, sep='.', escape_char='\\'):
     def check_flat_json(obj):

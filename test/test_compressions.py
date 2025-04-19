@@ -63,6 +63,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             shard_size=2**14,
             no_pigz=True,
             trafo=None,
+            shuffle=None,
         )
     elif fmt == "parquet":
         join_parquet(
@@ -130,6 +131,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir):
             batch_size=2**10,
             no_bulk=True,
             trafo=None,
+            shuffle=None,
         )
         assert filecmp.cmp(str(tmp_dir / "test.parquet"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to input file {in_file}"
     elif fmt == "parquet":

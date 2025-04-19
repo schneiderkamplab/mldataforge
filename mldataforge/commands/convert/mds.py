@@ -20,12 +20,13 @@ def mds():
 @batch_size_option()
 @no_bulk_option()
 @trafo_option()
+@shuffle_option()
 def jsonl(**kwargs):
     mds_to_jsonl(**kwargs)
-def mds_to_jsonl(output_file, mds_directories, compression, processes, overwrite, yes, batch_size, no_bulk, trafo):
+def mds_to_jsonl(output_file, mds_directories, compression, processes, overwrite, yes, batch_size, no_bulk, trafo, shuffle):
     check_arguments(output_file, overwrite, yes, mds_directories)
     save_jsonl(
-        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk),
+        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle),
         output_file,
         compression=compression,
         processes=processes,
@@ -41,12 +42,13 @@ def mds_to_jsonl(output_file, mds_directories, compression, processes, overwrite
 @batch_size_option()
 @no_bulk_option()
 @trafo_option()
+@shuffle_option()
 def parquet(**kwargs):
     mds_to_parquet(**kwargs)
-def mds_to_parquet(output_file, mds_directories, compression, overwrite, yes, batch_size, no_bulk, trafo):
+def mds_to_parquet(output_file, mds_directories, compression, overwrite, yes, batch_size, no_bulk, trafo, shuffle):
     check_arguments(output_file, overwrite, yes, mds_directories)
     save_parquet(
-        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk),
+        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle),
         output_file,
         compression=compression,
         batch_size=batch_size,

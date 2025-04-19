@@ -43,13 +43,14 @@ def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes,
 @shard_size_option()
 @no_pigz_option()
 @trafo_option()
+@shuffle_option()
 def mds(**kwargs):
     print(kwargs)
     join_mds(**kwargs)
-def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes, batch_size, buf_size, no_bulk, shard_size, no_pigz, trafo):
+def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes, batch_size, buf_size, no_bulk, shard_size, no_pigz, trafo, shuffle):
     check_arguments(output_dir, overwrite, yes, mds_directories)
     save_mds(
-        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk),
+        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle),
         output_dir,
         processes=processes,
         compression=compression,

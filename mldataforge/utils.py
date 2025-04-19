@@ -10,6 +10,7 @@ from streaming import StreamingDataset
 from tqdm import tqdm
 
 from .compression import determine_compression, open_compression, pigz_compress
+from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation
 from .mds import MDSBulkReader, MDSWriter
 from .pigz import pigz_open
 from .trafos import Transformations
@@ -89,7 +90,9 @@ def load_jsonl_files(jsonl_files):
         return _streaming_jsonl(jsonl_files, compressions)
     return load_dataset("json", data_files=jsonl_files, split="train")
 
-def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True):
+def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True, shuffle=None):
+    if bulk and shuffle is not None:
+        raise ValueError("Bulk reader does not support shuffling by design.")
     if bulk:
         return MDSBulkReader(mds_directories, split=split)
     dss = []
@@ -110,6 +113,12 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
     else:
         with timing(message=f"Concatenating {len(dss)} datasets"):
             ds = concatenate_datasets(dsets=dss)
+    if shuffle is not None:
+        with timing(message="Creating shuffle indices"):
+            indices = shuffle_permutation(len(ds), seed=abs(shuffle))
+            if shuffle < 0:
+                indices = reverse_permutation(indices)
+        ds = IndexedDatasetView(ds, indices)
     return ds
 
 def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=None, overwrite=True, yes=True, trafo=None):

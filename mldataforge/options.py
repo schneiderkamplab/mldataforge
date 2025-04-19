@@ -13,6 +13,7 @@ __all__ = [
     "processes_option",
     "prefix_option",
     "shard_size_option",
+    "shuffle_option",
     "size_hint_option",
     "trafo_option",
     "yes_option",
@@ -118,6 +119,17 @@ def shard_size_option(default=2**26):
         "--shard-size",
         default=default,
         help=f"Shard size for the dataset (default: {default}).",
+    )
+
+def shuffle_option():
+    """
+    Option for specifying whether to shuffle the dataset by providing a random seed.
+    """
+    return click.option(
+        "--shuffle",
+        default=None,
+        type=int,
+        help="Shuffle the dataset by providing a random seed.",
     )
 
 def size_hint_option(default=2**26):

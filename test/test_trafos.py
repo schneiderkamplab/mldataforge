@@ -44,6 +44,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir):
             shard_size=2**26,
             no_pigz=True,
             trafo=trafo,
+            shuffle=None,
         )
         if "unflatten_json" in trafo or "idenitity" in trafo:
             dircmp = filecmp.dircmp(str(tmp_dir / out_file), str(tmp_dir / "test.parquet.mds"))

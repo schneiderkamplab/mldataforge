@@ -50,11 +50,12 @@ def split_jsonl(jsonl_files, prefix, output_dir, size_hint, compression, process
 @shard_size_option()
 @no_pigz_option()
 @trafo_option()
+@shuffle_option()
 def mds(*args, **kwargs):
     split_mds(*args, **kwargs)
-def split_mds(mds_directories, prefix, output_dir, size_hint, compression, processes, overwrite, yes, buf_size, batch_size, no_bulk, shard_size, no_pigz, trafo):
+def split_mds(mds_directories, prefix, output_dir, size_hint, compression, processes, overwrite, yes, buf_size, batch_size, no_bulk, shard_size, no_pigz, trafo, shuffle):
     save_mds(
-        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk),
+        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle),
         output_dir=f"{output_dir}/{prefix}{{part:04d}}",
         processes=processes,
         compression=compression,
