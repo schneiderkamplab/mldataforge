@@ -12,7 +12,7 @@ from tqdm import tqdm
 from .compression import determine_compression, open_compression, pigz_compress
 from .mds import MDSBulkReader, MDSWriter
 from .pigz import pigz_open
-from .trafos import Trafo
+from .trafos import Transformations
 
 __all__ = [
     "check_arguments",
@@ -115,9 +115,8 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
 def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=None, overwrite=True, yes=True, trafo=None):
     f = None
     part = 0
-    trafo = Trafo(trafo)
-    for item in tqdm(iterable, desc="Writing to JSONL", unit="sample", disable=_NO_PROGESS):
-        item = trafo(item)
+    trafo = Transformations([] if trafo is None else [trafo])
+    for item in tqdm(trafo(iterable), desc="Writing to JSONL", unit="sample", disable=_NO_PROGESS):
         if f is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
@@ -135,9 +134,8 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
     writer = None
     part = 0
     files = []
-    trafo = Trafo(trafo)
-    for sample in tqdm(it, desc="Writing to MDS", unit="sample", disable=_NO_PROGESS):
-        sample = trafo(sample)
+    trafo = Transformations([] if trafo is None else [trafo])
+    for sample in tqdm(trafo(it), desc="Writing to MDS", unit="sample", disable=_NO_PROGESS):
         if writer is None:
             part_dir = output_dir.format(part=part)
             check_arguments(part_dir, overwrite, yes)
@@ -179,10 +177,9 @@ def save_parquet(it, output_file, compression=None, batch_size=2**16, size_hint=
     compression = determine_compression("parquet", output_file, compression)
     writer = None
     part = 0
-    trafo = Trafo(trafo)
+    trafo = Transformations([] if trafo is None else [trafo])
     it = tqdm(it, desc="Writing to Parquet", unit="sample", disable=_NO_PROGESS)
-    for batch in _batch_iterable(it, batch_size):
-        batch = [trafo(sample) for sample in batch]
+    for batch in _batch_iterable(trafo(it), batch_size):
         table = pa.Table.from_pylist(batch)
         if writer is None:
             part_file = output_file.format(part=part)

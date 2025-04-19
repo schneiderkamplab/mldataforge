@@ -3,12 +3,15 @@ from mldataforge.commands.join import join_jsonl, join_mds, join_parquet
 import pytest
 
 @pytest.mark.parametrize("fmt,trafo,out_file,in_file", [
-    ("jsonl", "flatten_json", "test.flattened.jsonl", "test.none.jsonl"),
-    ("jsonl", "unflatten_json", "test.unflattened.jsonl", "test.flattened.jsonl"),
-    ("mds", "flatten_json", "test.flattened.mds", "test.parquet.mds"),
-    ("mds", "unflatten_json", "test.unflattened.mds", "test.flattened.mds"),
-    ("parquet", "flatten_json", "test.flattened.parquet", "test.parquet"),
-    ("parquet", "unflatten_json", "test.unflattened.parquet", "test.flattened.parquet"),
+    ("jsonl", "from mldataforge.trafos import identity as process", "test.identity.jsonl", "test.none.jsonl"),
+    ("jsonl", "from mldataforge.trafos import flatten_json as process", "test.flattened.jsonl", "test.none.jsonl"),
+    ("jsonl", "from mldataforge.trafos import unflatten_json as process", "test.unflattened.jsonl", "test.flattened.jsonl"),
+    ("mds", "from mldataforge.trafos import identity as process", "test.identity.mds", "test.none.mds"),
+    ("mds", "from mldataforge.trafos import flatten_json as process", "test.flattened.mds", "test.parquet.mds"),
+    ("mds", "from mldataforge.trafos import unflatten_json as process", "test.unflattened.mds", "test.flattened.mds"),
+    ("parquet", "from mldataforge.trafos import identity as process", "test.identity.parquet", "test.parquet"),
+    ("parquet", "from mldataforge.trafos import flatten_json as process", "test.flattened.parquet", "test.parquet"),
+    ("parquet", "from mldataforge.trafos import unflatten_json as process", "test.unflattened.parquet", "test.flattened.parquet"),
 ])
 def test_trafos(fmt, trafo, out_file, in_file, tmp_dir):
     if fmt == "jsonl":
@@ -21,7 +24,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir):
             yes=True,
             trafo=trafo,
         )
-        if trafo == "unflatten_json":
+        if "unflatten_json" in trafo or "idenitity" in trafo:
             assert filecmp.cmp(
                 str(tmp_dir / out_file),
                 str(tmp_dir / "test.none.jsonl"),
@@ -42,7 +45,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir):
             no_pigz=True,
             trafo=trafo,
         )
-        if trafo == "unflatten_json":
+        if "unflatten_json" in trafo or "idenitity" in trafo:
             dircmp = filecmp.dircmp(str(tmp_dir / out_file), str(tmp_dir / "test.parquet.mds"))
             assert len(dircmp.left_only) == 0, f"Left only files: {dircmp.left_only}"
             assert len(dircmp.right_only) == 0, f"Right only files: {dircmp.right_only}"
@@ -58,7 +61,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir):
             batch_size=2**10,
             trafo=trafo,
         )
-        if trafo == "unflatten_json":
+        if "unflatten_json" in trafo or "idenitity" in trafo:
             assert filecmp.cmp(
                 str(tmp_dir / out_file),
                 str(tmp_dir / "test.parquet"),
