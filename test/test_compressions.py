@@ -1,8 +1,8 @@
+import filecmp
 from mldataforge.commands.join import join_jsonl, join_mds, join_parquet
 from mldataforge.commands.convert.jsonl import jsonl_to_parquet
 from mldataforge.commands.convert.mds import mds_to_parquet
 from mldataforge.commands.convert.parquet import parquet_to_jsonl
-import filecmp
 import pytest
 
 @pytest.mark.dependency(depends=["conversion"])
@@ -47,6 +47,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             processes=64,
             overwrite=True,
             yes=True,
+            trafo=None,
         )
     elif fmt == "mds":
         join_mds(
@@ -61,6 +62,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             no_bulk=False,
             shard_size=2**14,
             no_pigz=True,
+            trafo=None,
         )
     elif fmt == "parquet":
         join_parquet(
@@ -70,6 +72,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             overwrite=True,
             yes=True,
             batch_size=2**10,
+            trafo=None,
         )
     assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"
     if (tmp_dir / out_file).is_file():
@@ -114,6 +117,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir):
             overwrite=True,
             yes=True,
             batch_size=2**10,
+            trafo=None,
         )
         assert filecmp.cmp(str(tmp_dir / "test.parquet"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to input file {in_file}"
     elif fmt == "mds":
@@ -125,6 +129,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir):
             yes=True,
             batch_size=2**10,
             no_bulk=True,
+            trafo=None,
         )
         assert filecmp.cmp(str(tmp_dir / "test.parquet"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to input file {in_file}"
     elif fmt == "parquet":
@@ -135,6 +140,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir):
             processes=64,
             overwrite=True,
             yes=True,
+            trafo=None,
         )
         assert filecmp.cmp(str(tmp_dir / "test.none.jsonl"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to input file {in_file}"
     assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"

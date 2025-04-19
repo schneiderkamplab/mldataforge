@@ -18,9 +18,10 @@ def join():
 @processes_option()
 @overwrite_option()
 @yes_option()
+@trafo_option()
 def jsonl(**kwargs):
     join_jsonl(**kwargs)
-def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes):
+def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes, trafo):
     check_arguments(output_file, overwrite, yes, jsonl_files)
     save_jsonl(
         load_jsonl_files(jsonl_files),
@@ -41,10 +42,11 @@ def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes)
 @no_bulk_option()
 @shard_size_option()
 @no_pigz_option()
+@trafo_option()
 def mds(**kwargs):
     print(kwargs)
     join_mds(**kwargs)
-def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes, batch_size, buf_size, no_bulk, shard_size, no_pigz):
+def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes, batch_size, buf_size, no_bulk, shard_size, no_pigz, trafo):
     check_arguments(output_dir, overwrite, yes, mds_directories)
     save_mds(
         load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk),
@@ -54,6 +56,7 @@ def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes
         buf_size=buf_size,
         shard_size=shard_size,
         pigz=use_pigz(compression, no_pigz),
+        trafo=trafo,
     )
 
 @join.command()
@@ -63,13 +66,15 @@ def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes
 @overwrite_option()
 @yes_option()
 @batch_size_option()
+@trafo_option()
 def parquet(**kwargs):
     join_parquet(**kwargs)
-def join_parquet(output_file, parquet_files, compression, overwrite, yes, batch_size):
+def join_parquet(output_file, parquet_files, compression, overwrite, yes, batch_size, trafo):
     check_arguments(output_file, overwrite, yes, parquet_files)
     save_parquet(
         load_dataset("parquet", data_files=parquet_files, split="train"),
         output_file,
         compression=compression,
         batch_size=batch_size,
+        trafo=trafo,
     )

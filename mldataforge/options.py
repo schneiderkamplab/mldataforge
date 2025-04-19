@@ -14,6 +14,7 @@ __all__ = [
     "prefix_option",
     "shard_size_option",
     "size_hint_option",
+    "trafo_option",
     "yes_option",
 ]
 
@@ -127,6 +128,17 @@ def size_hint_option(default=2**26):
         "--size-hint",
         default=default,
         help=f"Size hint for the dataset (default: {default}).",
+    )
+
+def trafo_option():
+    """
+    Option for specifying the transformation function.
+    """
+    return click.option(
+        "--trafo",
+        default=None,
+        type=str,
+        help="Transformation function to apply to the dataset.",
     )
 
 def yes_option():
