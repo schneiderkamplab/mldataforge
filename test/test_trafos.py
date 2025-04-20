@@ -13,7 +13,7 @@ import pytest
     ("parquet", "from mldataforge.trafos import flatten_json as process", "test.flattened.parquet", "test.parquet"),
     ("parquet", "from mldataforge.trafos import unflatten_json as process", "test.unflattened.parquet", "test.flattened.parquet"),
 ])
-def test_trafos(fmt, trafo, out_file, in_file, tmp_dir):
+def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor):
     if fmt == "jsonl":
         join_jsonl(
             output_file=str(tmp_dir / out_file),
@@ -38,10 +38,10 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir):
             processes=64,
             overwrite=True,
             yes=True,
-            batch_size=2**10,
-            buf_size=2**14,
+            batch_size=2**10*scale_factor,
+            buf_size=2**14*scale_factor,
             no_bulk=False,
-            shard_size=2**26,
+            shard_size=2**26*scale_factor,
             no_pigz=True,
             trafo=trafo,
             shuffle=None,
@@ -59,7 +59,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir):
             compression="snappy",
             overwrite=True,
             yes=True,
-            batch_size=2**10,
+            batch_size=2**10*scale_factor,
             trafo=trafo,
         )
         if "unflatten_json" in trafo or "idenitity" in trafo:

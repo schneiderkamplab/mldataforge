@@ -38,7 +38,7 @@ import pytest
     ("mds", "sample::snappy", "test.sample::snappy.mds", "test.parquet.mds"),
     ("mds", "sample::zstd", "test.sample::zstd.mds", "test.parquet.mds"),
 ])
-def test_compression(fmt, compression, out_file, in_file, tmp_dir):
+def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor):
     if fmt == "jsonl":
         join_jsonl(
             output_file=str(tmp_dir / out_file),
@@ -57,10 +57,10 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             processes=64,
             overwrite=True,
             yes=True,
-            batch_size=2**10,
-            buf_size=2**14,
+            batch_size=2**10*scale_factor,
+            buf_size=2**14*scale_factor,
             no_bulk=False,
-            shard_size=2**14,
+            shard_size=2**14*scale_factor,
             no_pigz=True,
             trafo=None,
             shuffle=None,
@@ -72,7 +72,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
             compression=compression,
             overwrite=True,
             yes=True,
-            batch_size=2**10,
+            batch_size=2**10*scale_factor,
             trafo=None,
         )
     assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"
@@ -109,7 +109,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir):
     ("mds", "test.sample::snappy.mds.parquet", "test.sample::snappy.mds"),
     ("mds", "test.sample::zstd.mds.parquet", "test.sample::zstd.mds"),
 ])
-def test_decompression(fmt, out_file, in_file, tmp_dir):
+def test_decompression(fmt, out_file, in_file, tmp_dir, scale_factor):
     if fmt == "jsonl":
         jsonl_to_parquet(
             output_file=str(tmp_dir / out_file),
@@ -117,7 +117,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir):
             compression="snappy",
             overwrite=True,
             yes=True,
-            batch_size=2**10,
+            batch_size=2**10*scale_factor,
             trafo=None,
         )
         assert filecmp.cmp(str(tmp_dir / "test.parquet"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to input file {in_file}"
@@ -128,7 +128,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir):
             compression="snappy",
             overwrite=True,
             yes=True,
-            batch_size=2**10,
+            batch_size=2**10*scale_factor,
             no_bulk=True,
             trafo=None,
             shuffle=None,

@@ -1,4 +1,5 @@
 from huggingface_hub import hf_hub_download
+import math
 from pathlib import Path
 import pytest
 
@@ -22,3 +23,9 @@ def tmp_dir():
             tmp_dir / "test.parquet"
         )
     return tmp_dir
+
+@pytest.fixture
+def scale_factor(tmp_dir):
+    size = (tmp_dir / "test.parquet").stat().st_size
+    factor = int(2 ** math.ceil(math.log2(size / 2**19)))
+    return factor

@@ -6,7 +6,7 @@ import pytest
     (42, "test.shuffled.mds", "test.none.mds"),
     (-42, "test.unshuffled.mds", "test.shuffled.mds"),
 ])
-def test_trafos(seed, out_file, in_file, tmp_dir):
+def test_shuffling(seed, out_file, in_file, tmp_dir, scale_factor):
     join_mds(
         output_dir=str(tmp_dir / out_file),
         mds_directories=[str(tmp_dir / in_file)],
@@ -14,10 +14,10 @@ def test_trafos(seed, out_file, in_file, tmp_dir):
         processes=64,
         overwrite=True,
         yes=True,
-        batch_size=2**10,
-        buf_size=2**14,
+        batch_size=2**10*scale_factor,
+        buf_size=2**14*scale_factor,
         no_bulk=False,
-        shard_size=2**14,
+        shard_size=2**14*scale_factor,
         no_pigz=True,
         trafo=None,
         shuffle=None,

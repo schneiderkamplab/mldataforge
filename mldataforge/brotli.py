@@ -1,15 +1,10 @@
-import brotlicffi as brotli
+import brotli
 import io
 
 __all__ = ["brotli_open"]
 
 def brotli_open(filename, mode='rb', encoding='utf-8', compress_level=11):
     return BrotliFile(filename, mode=mode, encoding=encoding, compress_level=11)
-
-import brotlicffi as brotli
-import io
-
-__all__ = ["brotli_open"]
 
 class BrotliFile:
     def __init__(self, filename, mode='rb', encoding='utf-8', compress_level=11):
