@@ -68,4 +68,4 @@ def tmp_dir(request, tmp_path_factory):
 def scale_factor(tmp_dir):
     size = (tmp_dir / "test.jsonl").stat().st_size
     factor = int(2 ** math.ceil(math.log2(size / 2**20)))
-    return factor
+    return max(factor, 1)

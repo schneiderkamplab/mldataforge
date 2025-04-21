@@ -16,11 +16,11 @@ def test_shuffling(seed, out_file, in_file, tmp_dir, scale_factor):
         yes=True,
         batch_size=2**10*scale_factor,
         buf_size=2**14*scale_factor,
-        no_bulk=False,
+        no_bulk=True,
         shard_size=2**26,
         no_pigz=True,
         trafo=None,
-        shuffle=None,
+        shuffle=seed,
     )
     if seed < 0:
         dircmp = filecmp.dircmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.mds"))

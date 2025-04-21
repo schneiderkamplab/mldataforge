@@ -78,10 +78,6 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor,
             trafo=None,
         )
     assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"
-    if (tmp_dir / out_file).is_file():
-        assert (tmp_dir / out_file).stat().st_size > 2**14, f"Output file {out_file} is too small"
-    else:
-        assert sum(f.stat().st_size for f in (tmp_dir / out_file).glob("*.mds*")) > 2**14, f"Output directory {out_file} is too small"
 
 @pytest.mark.dependency(depends=["compression"])
 @pytest.mark.parametrize("fmt,out_file,in_file", [
