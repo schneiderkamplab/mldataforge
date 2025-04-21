@@ -1,5 +1,4 @@
 import click
-from datasets import load_dataset
 
 from ..compression import *
 from ..options import *
@@ -45,13 +44,14 @@ def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes,
 @no_pigz_option()
 @trafo_option()
 @shuffle_option()
+@index_option()
 def mds(**kwargs):
     print(kwargs)
     join_mds(**kwargs)
-def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes, batch_size, buf_size, no_bulk, shard_size, no_pigz, trafo, shuffle):
+def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes, batch_size, buf_size, no_bulk, shard_size, no_pigz, trafo, shuffle, index):
     check_arguments(output_dir, overwrite, yes, mds_directories)
     save_mds(
-        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle),
+        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle, index=index),
         output_dir,
         processes=processes,
         compression=compression,
@@ -74,7 +74,7 @@ def parquet(**kwargs):
 def join_parquet(output_file, parquet_files, compression, overwrite, yes, batch_size, trafo):
     check_arguments(output_file, overwrite, yes, parquet_files)
     save_parquet(
-        load_dataset("parquet", data_files=parquet_files, split="train"),
+        load_parquet_files(parquet_files),
         output_file,
         compression=compression,
         batch_size=batch_size,

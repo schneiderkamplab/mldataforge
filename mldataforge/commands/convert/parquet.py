@@ -1,5 +1,4 @@
 import click
-from datasets import load_dataset
 
 from ...compression import *
 from ...options import *
@@ -24,7 +23,7 @@ def jsonl(**kwargs):
 def parquet_to_jsonl(output_file, parquet_files, compression, processes, overwrite, yes, trafo):
     check_arguments(output_file, overwrite, yes, parquet_files)
     save_jsonl(
-        load_dataset("parquet", data_files=parquet_files, split="train"),
+        load_parquet_files(parquet_files),
         output_file,
         compression=compression,
         processes=processes,
@@ -47,7 +46,7 @@ def mds(**kwargs):
 def parquet_to_mds(output_dir, parquet_files, compression, processes, overwrite, yes, buf_size, shard_size, no_pigz, trafo):
     check_arguments(output_dir, overwrite, yes, parquet_files)
     save_mds(
-        load_dataset("parquet", data_files=parquet_files, split="train"),
+        load_parquet_files(parquet_files),
         output_dir,
         processes=processes,
         compression=compression,

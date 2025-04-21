@@ -2,6 +2,8 @@ import click
 from datasets import concatenate_datasets, load_dataset
 import json
 from mltiming import timing
+import numpy as np
+from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import os
@@ -12,14 +14,17 @@ from tqdm import tqdm
 from .compression import determine_compression, open_compression, pigz_compress
 from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation
 from .mds import MDSBulkReader, MDSWriter
-from .pigz import pigz_open
 from .trafos import Transformations
 
 __all__ = [
     "check_arguments",
     "confirm_overwrite",
+    "count_mds",
+    "load_index",
     "load_jsonl_files",
     "load_mds_directories",
+    "load_parquet_files",
+    "save_index",
     "save_jsonl",
     "save_mds",
     "save_parquet",
@@ -67,6 +72,18 @@ def confirm_overwrite(message):
     if response.lower() != 'yes':
         raise click.Abort()
 
+def count_mds(mds_directories):
+    counter = 0
+    for mds_directory in mds_directories:
+        index_path = Path(mds_directory) / "index.json"
+        if not os.path.exists(index_path):
+            raise FileNotFoundError(f"Index file '{index_path}' not found.")
+        with open(index_path, "rt") as f:
+            index = json.load(f)
+        for shard in index["shards"]:
+            counter += shard["samples"]
+    return counter
+
 def _infer_mds_encoding(value):
     """Determine the MDS encoding for a given value."""
     if isinstance(value, str):
@@ -90,15 +107,23 @@ def _limit_iterable(iterable, limit):
             break
         yield item
 
+def load_index(input_file):
+    with open(input_file, "rb") as f:
+        indices = np.load(f)
+    return indices
+
 def load_jsonl_files(jsonl_files):
     compressions = [determine_compression("jsonl", jsonl_file) for jsonl_file in jsonl_files]
     if "br" in compressions or "snappy" in compressions:
         return _streaming_jsonl(jsonl_files, compressions)
     return load_dataset("json", data_files=jsonl_files, split="train")
 
-def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True, shuffle=None):
-    if bulk and shuffle is not None:
-        raise ValueError("Bulk reader does not support shuffling by design.")
+def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True, shuffle=None, index=None):
+    if shuffle is not None:
+        if bulk:
+            raise ValueError("Bulk reader does not support shuffling by design.")
+        if index is not None:
+            raise ValueError("Cannot use index and shuffling simultaneously.")
     if bulk:
         return MDSBulkReader(mds_directories, split=split)
     dss = []
@@ -125,7 +150,19 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
             if shuffle < 0:
                 indices = reverse_permutation(indices)
         ds = IndexedDatasetView(ds, indices)
+    if index is not None:
+        with timing(message="Loading index"):
+            indices = load_index(index)
+        ds = IndexedDatasetView(ds, indices)
     return ds
+
+def load_parquet_files(parquet_files):
+    ds = load_dataset("parquet", data_files=parquet_files, split="train")
+    return ds
+
+def save_index(indices, output_file, overwrite=True, yes=True):
+    with open(output_file, "wb") as f:
+        np.save(f, indices)
 
 def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=None, overwrite=True, yes=True, trafo=None):
     f = None
