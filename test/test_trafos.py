@@ -2,6 +2,8 @@ import filecmp
 from mldataforge.commands.join import join_jsonl, join_mds, join_parquet
 import pytest
 
+@pytest.mark.dependency(depends=["conversion"])
+@pytest.mark.dependency(name="trafos")
 @pytest.mark.parametrize("fmt,trafo,out_file,in_file", [
     ("jsonl", "from mldataforge.trafos import identity as process", "test.identity.jsonl", "test.jsonl"),
     ("jsonl", "from mldataforge.trafos import flatten_json as process", "test.flattened.jsonl", "test.jsonl"),
