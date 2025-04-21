@@ -4,12 +4,12 @@ import pytest
 
 @pytest.mark.dependency(name="conversion")
 @pytest.mark.parametrize("src_fmt,target_fmt,out_file,in_file", [
-    ("parquet", "jsonl", "test.parquet.jsonl.gz", "test.parquet"),
-    ("jsonl", "parquet", "test.parquet.jsonl.parquet", "test.parquet.jsonl.gz"),
-    ("parquet", "mds", "test.parquet.mds", "test.parquet"),
-    ("jsonl", "mds", "test.parquet.jsonl.mds", "test.parquet.jsonl.gz"),
-    ("mds", "parquet", "test.parquet.mds.parquet", "test.parquet.mds"),
-    ("mds", "jsonl", "test.parquet.mds.jsonl.gz", "test.parquet.mds"),
+    ("jsonl", "mds", "test.jsonl.mds", "test.jsonl"),
+    ("jsonl", "parquet", "test.jsonl.parquet", "test.jsonl"),
+    ("mds", "jsonl", "test.jsonl.mds.jsonl", "test.jsonl.mds"),
+    ("mds", "parquet", "test.jsonl.mds.parquet", "test.jsonl.mds"),
+    ("parquet", "jsonl", "test.jsonl.parquet.jsonl", "test.jsonl.parquet"),
+    ("parquet", "mds", "test.jsonl.parquet.mds", "test.jsonl.parquet"),
 ])
 def test_conversion(src_fmt, target_fmt, out_file, in_file, tmp_dir):
     runner = CliRunner()
@@ -27,9 +27,9 @@ def test_conversion(src_fmt, target_fmt, out_file, in_file, tmp_dir):
 
 @pytest.mark.dependency(depends=["conversion"])
 @pytest.mark.parametrize("fmt,out_file,in_files", [
-    ("jsonl", "test.joined.jsonl.gz", ["test.parquet.jsonl.gz", "test.parquet.mds.jsonl.gz"]),
-    ("mds", "test.joined.mds", ["test.parquet.mds", "test.parquet.jsonl.mds"]),
-    ("parquet", "test.joined.parquet", ["test.parquet", "test.parquet.mds.parquet"]),
+    ("jsonl", "test.joined.jsonl.gz", ["test.jsonl.parquet.jsonl", "test.jsonl.mds.jsonl"]),
+    ("mds", "test.joined.mds", ["test.jsonl.mds", "test.jsonl.parquet.mds"]),
+    ("parquet", "test.joined.parquet", ["test.jsonl.parquet", "test.jsonl.mds.parquet"]),
 ])
 def test_join(fmt, out_file, in_files, tmp_dir):
     runner = CliRunner()
@@ -46,9 +46,9 @@ def test_join(fmt, out_file, in_files, tmp_dir):
 
 @pytest.mark.dependency(depends=["conversion"])
 @pytest.mark.parametrize("fmt,in_files", [
-    ("jsonl", ["test.parquet.jsonl.gz", "test.parquet.mds.jsonl.gz"]),
-    ("mds", ["test.parquet.mds", "test.parquet.jsonl.mds"]),
-    ("parquet", ["test.parquet", "test.parquet.mds.parquet"]),
+    ("jsonl", ["test.jsonl", "test.jsonl.mds.jsonl"]),
+    ("mds", ["test.jsonl.mds", "test.jsonl.parquet.mds"]),
+    ("parquet", ["test.jsonl.parquet", "test.jsonl.mds.parquet"]),
 ])
 def test_split(fmt, in_files, tmp_dir):
     runner = CliRunner()
@@ -57,11 +57,11 @@ def test_split(fmt, in_files, tmp_dir):
         fmt,
         *[str(tmp_dir / f) for f in in_files],
         "--prefix",
-        "test_",
+        f"test_{fmt}",
         "--output-dir",
         str(tmp_dir),
         "--overwrite",
         "--yes"
     ])
     assert result.exit_code == 0, f"Failed splitting files for {fmt}: {result.output}"
-    assert [None for f in tmp_dir.iterdir() if f.name.startswith("test_") and f.name.endswith(".jsonl.gz")]
+    assert [None for f in tmp_dir.iterdir() if f.name.startswith(f"test_{fmt}")]

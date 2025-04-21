@@ -84,6 +84,12 @@ def _streaming_jsonl(jsonl_files, compressions):
         for line in open_compression(jsonl_file, mode="rt", compression=compression):
             yield json.loads(line)
 
+def _limit_iterable(iterable, limit):
+    for i, item in enumerate(iterable):
+        if i >= limit:
+            break
+        yield item
+
 def load_jsonl_files(jsonl_files):
     compressions = [determine_compression("jsonl", jsonl_file) for jsonl_file in jsonl_files]
     if "br" in compressions or "snappy" in compressions:
@@ -130,6 +136,7 @@ def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
             f = open_compression(part_file, mode="wb", compression=compression, processes=processes)
+        item = _sort_nested(item)
         f.write(f"{json.dumps(item)}\n".encode("utf-8"))
         if size_hint is not None and f.tell() >= size_hint:
             f.close()
@@ -140,6 +147,8 @@ def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=
 
 def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pigz=True, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None):
     compression = determine_compression("mds", output_dir, compression, no_pigz=not pigz)
+    if shard_size is not None and shard_size > 2**31:
+        shard_size = 2**31
     writer = None
     part = 0
     files = []
@@ -203,3 +212,11 @@ def save_parquet(it, output_file, compression=None, batch_size=2**16, size_hint=
             writer = None
     if writer is not None:
         writer.close()
+
+def _sort_nested(obj):
+    if isinstance(obj, dict):
+        return {k: _sort_nested(obj[k]) for k in sorted(obj)}
+    elif isinstance(obj, list):
+        return [_sort_nested(item) for item in obj]
+    else:
+        return obj

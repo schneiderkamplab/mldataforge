@@ -28,6 +28,7 @@ def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes,
         output_file,
         compression=compression,
         processes=processes,
+        trafo=trafo,
     )
 
 @join.command()
