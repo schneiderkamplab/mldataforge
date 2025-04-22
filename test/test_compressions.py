@@ -40,7 +40,7 @@ import pytest
 ])
 def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor, compressions):
     if compressions is not None and compression not in compressions:
-        pytest.xfail(f"Compression {compression} is not in the list of compressions to test: {compressions}")
+        pytest.skip(f"Compression {compression} is not in the list of compressions to test: {compressions}")
     if fmt == "jsonl":
         join_jsonl(
             output_file=str(tmp_dir / out_file),
@@ -66,6 +66,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor,
             no_pigz=True,
             trafo=None,
             shuffle=None,
+            index=None,
         )
     elif fmt == "parquet":
         join_parquet(
@@ -132,6 +133,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir, scale_factor):
             no_bulk=True,
             trafo=None,
             shuffle=None,
+            index=None,
         )
         assert filecmp.cmp(str(tmp_dir / "test.jsonl"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to test.jsonl"
     elif fmt == "parquet":

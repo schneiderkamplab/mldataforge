@@ -44,9 +44,7 @@ def join(**kwargs):
     index_join(**kwargs)
 def index_join(output_file, input_files, overwrite, yes, number, offset, every):
     check_arguments(output_file, overwrite, yes)
-    indices = []
-    for input_file in input_files:
-        indices += load_index(input_file)
+    indices = join_indices(input_files)
     indices = process_indices(indices, every=every, offset=offset, number=number)
     save_index(indices, output_file)
 
@@ -98,9 +96,9 @@ def index_reverse(output_file, input_file, overwrite, yes, number, offset, every
 @number_option()
 @offset_option()
 @every_option()
-def slicing(**kwargs):
-    index_slicing(**kwargs)
-def index_slicing(output_file, input_file, overwrite, yes, number, offset, every):
+def slice(**kwargs):
+    index_slice(**kwargs)
+def index_slice(output_file, input_file, overwrite, yes, number, offset, every):
     check_arguments(output_file, overwrite, yes)
     indices = load_index(input_file)
     indices = process_indices(indices, every=every, offset=offset, number=number)

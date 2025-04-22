@@ -5,7 +5,8 @@ __all__ = ['IndexedDatasetView', 'identity_permutation', 'process_indices', 'rev
 class IndexedDatasetView:
     def __init__(self, dataset, indices):
         self.dataset = dataset
-        self.indices = list(indices)  # ensure repeatable accessx
+        length = len(dataset)
+        self.indices = [i for i in indices if 0 <= i < length]
 
     def __iter__(self):
         for idx in self.indices:
@@ -28,7 +29,7 @@ def process_indices(indices, every=None, offset=None, number=None):
 
 def shuffle_permutation(n, seed=int):
     rng = np.random.default_rng(seed)
-    return rng.permutation(n, dtype=np.uint64)
+    return rng.permutation(n).astype(np.uint64)
 
 def reverse_permutation(indices):
     n = len(indices)

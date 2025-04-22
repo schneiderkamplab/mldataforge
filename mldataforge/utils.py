@@ -20,6 +20,7 @@ __all__ = [
     "check_arguments",
     "confirm_overwrite",
     "count_mds",
+    "join_indices",
     "load_index",
     "load_jsonl_files",
     "load_mds_directories",
@@ -96,10 +97,20 @@ def _infer_mds_encoding(value):
         return 'bool'
     return 'pkl'
 
-def _streaming_jsonl(jsonl_files, compressions):
-    for jsonl_file, compression in tqdm(zip(jsonl_files, compressions), desc="Loading JSONL files", unit="file", disable=_NO_PROGESS):
-        for line in open_compression(jsonl_file, mode="rt", compression=compression):
-            yield json.loads(line)
+def join_indices(input_files):
+    loaded = []
+    total = 0
+    for file in input_files:
+        arr = load_index(file)
+        loaded.append(arr)
+        total += len(arr)
+    indices = np.empty(total, dtype=np.uint64)
+    offset = 0
+    while loaded:
+        arr = loaded.pop(0)
+        indices[offset:offset+len(arr)] = arr
+        offset += len(arr)
+    return indices
 
 def _limit_iterable(iterable, limit):
     for i, item in enumerate(iterable):
@@ -257,3 +268,8 @@ def _sort_nested(obj):
         return [_sort_nested(item) for item in obj]
     else:
         return obj
+
+def _streaming_jsonl(jsonl_files, compressions):
+    for jsonl_file, compression in tqdm(zip(jsonl_files, compressions), desc="Loading JSONL files", unit="file", disable=_NO_PROGESS):
+        for line in open_compression(jsonl_file, mode="rt", compression=compression):
+            yield json.loads(line)
