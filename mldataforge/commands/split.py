@@ -16,18 +16,18 @@ def split():
 @output_dir_option()
 @size_hint_option()
 @compression_option(JSONL_COMPRESSIONS)
-@processes_option()
+@compression_args_option()
 @overwrite_option()
 @yes_option()
 @trafo_option()
 def jsonl(*args, **kwargs):
     split_jsonl(*args, **kwargs)
-def split_jsonl(jsonl_files, prefix, output_dir, size_hint, compression, processes, overwrite, yes, trafo):
+def split_jsonl(jsonl_files, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, trafo):
     save_jsonl(
         load_jsonl_files(jsonl_files),
         output_file=f"{output_dir}/{prefix}{{part:04d}}.jsonl{extension_compression(compression, jsonl_files[0])}",
         compression=compression,
-        processes=processes,
+        compression_args=compression_args,
         size_hint=size_hint,
         overwrite=overwrite,
         yes=yes,
@@ -40,7 +40,7 @@ def split_jsonl(jsonl_files, prefix, output_dir, size_hint, compression, process
 @output_dir_option()
 @size_hint_option()
 @compression_option(MDS_COMPRESSIONS)
-@processes_option()
+@compression_args_option()
 @overwrite_option()
 @yes_option()
 @buf_size_option()
@@ -53,12 +53,12 @@ def split_jsonl(jsonl_files, prefix, output_dir, size_hint, compression, process
 @index_option()
 def mds(*args, **kwargs):
     split_mds(*args, **kwargs)
-def split_mds(mds_directories, prefix, output_dir, size_hint, compression, processes, overwrite, yes, buf_size, batch_size, no_bulk, shard_size, no_pigz, trafo, shuffle, index):
+def split_mds(mds_directories, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, buf_size, batch_size, no_bulk, shard_size, no_pigz, trafo, shuffle, index):
     save_mds(
         load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle, index=index),
         output_dir=f"{output_dir}/{prefix}{{part:04d}}",
-        processes=processes,
         compression=compression,
+        compression_args=compression_args,
         buf_size=buf_size,
         pigz=use_pigz(compression, no_pigz),
         shard_size=shard_size,

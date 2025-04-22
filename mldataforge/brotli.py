@@ -3,15 +3,13 @@ import io
 
 __all__ = ["brotli_open"]
 
-def brotli_open(filename, mode='rb', encoding='utf-8', compress_level=11):
-    return BrotliFile(filename, mode=mode, encoding=encoding, compress_level=11)
+def brotli_open(filename, mode='rb', encoding='utf-8', quality=11, lgwin=22, lgblock=0):
+    return BrotliFile(filename, mode=mode, encoding=encoding, quality=quality, lgwin=lgwin, lgblock=lgblock)
 
 class BrotliFile:
-    def __init__(self, filename, mode='rb', encoding='utf-8', compress_level=11):
+    def __init__(self, filename, mode='rb', encoding='utf-8', quality=11, lgwin=22, lgblock=0):
         self.filename = filename
-        self.mode = mode
         self.encoding = encoding
-        self.compress_level = compress_level
 
         self.binary = 'b' in mode
         file_mode = mode.replace('t', 'b')
@@ -21,7 +19,7 @@ class BrotliFile:
             self._decompressor = brotli.Decompressor()
             self._stream = self._wrap_reader()
         elif 'w' in mode:
-            self._compressor = brotli.Compressor(quality=compress_level)
+            self._compressor = brotli.Compressor(quality=quality, lgwin=lgwin, lgblock=lgblock)
             self._stream = self._wrap_writer()
         else:
             raise ValueError("Unsupported mode (use 'rb', 'wb', 'rt', or 'wt')")

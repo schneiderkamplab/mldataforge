@@ -14,19 +14,19 @@ def join():
 @click.argument("output_file", type=click.Path(exists=False), required=True)
 @click.argument("jsonl_files", type=click.Path(exists=True), required=True, nargs=-1)
 @compression_option(JSONL_COMPRESSIONS)
-@processes_option()
+@compression_args_option()
 @overwrite_option()
 @yes_option()
 @trafo_option()
 def jsonl(**kwargs):
     join_jsonl(**kwargs)
-def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes, trafo):
+def join_jsonl(output_file, jsonl_files, compression, compression_args, overwrite, yes, trafo):
     check_arguments(output_file, overwrite, yes, jsonl_files)
     save_jsonl(
         load_jsonl_files(jsonl_files),
         output_file,
         compression=compression,
-        processes=processes,
+        compression_args=compression_args,
         trafo=trafo,
     )
 
@@ -34,7 +34,7 @@ def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes,
 @click.argument("output_dir", type=click.Path(exists=False), required=True)
 @click.argument("mds_directories", type=click.Path(exists=True), required=True, nargs=-1)
 @compression_option(MDS_COMPRESSIONS)
-@processes_option()
+@compression_args_option()
 @overwrite_option()
 @yes_option()
 @batch_size_option()
@@ -48,13 +48,13 @@ def join_jsonl(output_file, jsonl_files, compression, processes, overwrite, yes,
 def mds(**kwargs):
     print(kwargs)
     join_mds(**kwargs)
-def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes, batch_size, buf_size, no_bulk, shard_size, no_pigz, trafo, shuffle, index):
+def join_mds(output_dir, mds_directories, compression, compression_args, overwrite, yes, batch_size, buf_size, no_bulk, shard_size, no_pigz, trafo, shuffle, index):
     check_arguments(output_dir, overwrite, yes, mds_directories)
     save_mds(
         load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle, index=index),
         output_dir,
-        processes=processes,
         compression=compression,
+        compression_args=compression_args,
         buf_size=buf_size,
         shard_size=shard_size,
         pigz=use_pigz(compression, no_pigz),
@@ -65,18 +65,20 @@ def join_mds(output_dir, mds_directories, compression, processes, overwrite, yes
 @click.argument("output_file", type=click.Path(exists=False), required=True)
 @click.argument("parquet_files", type=click.Path(exists=True), required=True, nargs=-1)
 @compression_option(PARQUET_COMPRESSIONS)
+@compression_args_option()
 @overwrite_option()
 @yes_option()
 @batch_size_option()
 @trafo_option()
 def parquet(**kwargs):
     join_parquet(**kwargs)
-def join_parquet(output_file, parquet_files, compression, overwrite, yes, batch_size, trafo):
+def join_parquet(output_file, parquet_files, compression, compression_args, overwrite, yes, batch_size, trafo):
     check_arguments(output_file, overwrite, yes, parquet_files)
     save_parquet(
         load_parquet_files(parquet_files),
         output_file,
         compression=compression,
+        compression_args=compression_args,
         batch_size=batch_size,
         trafo=trafo,
     )

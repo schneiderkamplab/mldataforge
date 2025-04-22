@@ -5,6 +5,7 @@ from .compression import JSONL_COMPRESSIONS, MDS_COMPRESSIONS, PARQUET_COMPRESSI
 __all__ = [
     "batch_size_option",
     "buf_size_option",
+    "compression_args_option",
     "compression_option",
     "every_option",
     "index_option",
@@ -14,7 +15,6 @@ __all__ = [
     "offset_option",
     "output_dir_option",
     "overwrite_option",
-    "processes_option",
     "prefix_option",
     "shard_size_option",
     "shuffle_option",
@@ -41,6 +41,17 @@ def buf_size_option(default=2**24):
         "--buf-size",
         default=default,
         help=f"Buffer size for pigz compression (default: {default}).",
+    )
+
+def compression_args_option(default={"processes": 64}):
+    """
+    Option for specifying compression arguments.
+    """
+    return click.option(
+        "--compression-args",
+        default=default,
+        type=dict,
+        help=f"Compression arguments (default: {default}).",
     )
 
 def compression_option(args):
@@ -144,16 +155,6 @@ def prefix_option(default="part-"):
         "--prefix",
         default=default,
         help=f"Prefix for output files (default: {default}).",
-    )
-
-def processes_option(default=64):
-    """
-    Option for specifying the number of processes to use.
-    """
-    return click.option(
-        "--processes",
-        default=default,
-        help=f"Number of processes to use (default: {default}).",
     )
 
 def shard_size_option(default=2**26):

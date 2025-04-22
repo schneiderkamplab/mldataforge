@@ -175,7 +175,7 @@ def save_index(indices, output_file, overwrite=True, yes=True):
     with open(output_file, "wb") as f:
         np.save(f, indices)
 
-def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=None, overwrite=True, yes=True, trafo=None):
+def save_jsonl(iterable, output_file, compression=None, compression_args={"processes": 64}, size_hint=None, overwrite=True, yes=True, trafo=None):
     f = None
     part = 0
     trafo = Transformations([] if trafo is None else [trafo])
@@ -183,7 +183,7 @@ def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=
         if f is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
-            f = open_compression(part_file, mode="wb", compression=compression, processes=processes)
+            f = open_compression(part_file, mode="wb", compression=compression, compression_args=compression_args)
         item = _sort_nested(item)
         f.write(f"{json.dumps(item)}\n".encode("utf-8"))
         if size_hint is not None and f.tell() >= size_hint:
@@ -193,7 +193,7 @@ def save_jsonl(iterable, output_file, compression=None, processes=64, size_hint=
     if f is not None:
         f.close()
 
-def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pigz=True, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None):
+def save_mds(it, output_dir, compression=None, compression_args={"processes": 64}, buf_size=2**24, pigz=True, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None):
     compression = determine_compression("mds", output_dir, compression, no_pigz=not pigz)
     if shard_size is not None and shard_size > 2**31:
         shard_size = 2**31
@@ -229,7 +229,7 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
                 compressed_file_name = file_name + ".gz"
                 file_path = os.path.join(output_dir, file_name)
                 compressed_file_path = os.path.join(output_dir, compressed_file_name)
-                pigz_compress(file_path, compressed_file_path, processes, buf_size=buf_size, keep=False, quiet=True)
+                pigz_compress(file_path, compressed_file_path, compression_args.get("processes", 64), buf_size=buf_size, keep=False, quiet=True)
                 name2info[file_name]["compression"] = "gz"
                 name2info[file_name]["zip_data"] = {
                     "basename": compressed_file_name,
@@ -239,7 +239,7 @@ def save_mds(it, output_dir, processes=64, compression=None, buf_size=2**24, pig
             json.dump(index, open(index_path, "wt"))
             print(f"Compressed {output_dir} with pigz")
 
-def save_parquet(it, output_file, compression=None, batch_size=2**16, size_hint=None, overwrite=True, yes=True, trafo=None):
+def save_parquet(it, output_file, compression=None, compression_args={"processes": 64}, batch_size=2**16, size_hint=None, overwrite=True, yes=True, trafo=None):
     compression = determine_compression("parquet", output_file, compression)
     writer = None
     part = 0
@@ -250,7 +250,7 @@ def save_parquet(it, output_file, compression=None, batch_size=2**16, size_hint=
         if writer is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
-            writer = pq.ParquetWriter(part_file, table.schema, compression=compression)
+            writer = pq.ParquetWriter(part_file, table.schema, compression=compression, compression_level=compression_args.get("level", None))
             offset = 0
         writer.write_table(table)
         offset += table.nbytes

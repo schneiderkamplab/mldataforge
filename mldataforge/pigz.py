@@ -7,7 +7,7 @@ def pigz_open(path, mode="rt", processes=64, encoding=None):
 
 class PigzFile(object):
     """A wrapper for pigz to handle gzip compression and decompression."""
-    def __init__(self, path, mode="rt", processes=4, encoding="utf-8"):
+    def __init__(self, path, mode="rt", processes=4, encoding="utf-8", compression_level=6):
         assert mode in ("rt", "wt", "rb", "wb")
         self.path = path
         self.is_read = mode[0] == "r"
@@ -22,6 +22,7 @@ class PigzFile(object):
             args.extend(("-d", self.path))
             self._process = subprocess.Popen(args, stdout=subprocess.PIPE, encoding=self.encoding, text=self.is_text)
         else:
+            args.extend(("-{0}".format(compression_level),))
             self._fw = open(self.path, "w+")
             self._process = subprocess.Popen(args, stdout=self._fw, stdin=subprocess.PIPE, encoding=self.encoding, text=self.is_text)
         

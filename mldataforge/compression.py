@@ -1,4 +1,5 @@
 import bz2
+import inspect
 from isal import igzip as gzip
 import lz4
 import lzma
@@ -113,28 +114,34 @@ def infer_compression(file_path, pigz=True):
         return 'zstd'
     return None
 
-def open_compression(file_path, mode="rt", compression="infer", processes=64):
+def with_kwargs(func, candidates, *args, **kwargs):
+    params = inspect.signature(func).parameters
+    filtered = (candidates.copy() if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()) else {k: v for k, v in candidates.items() if k in params and params[k].kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)})
+    filtered.update(kwargs)
+    return func(*args, **filtered)
+
+def open_compression(file_path, mode="rt", compression="infer", compression_args={"processes": 64}):
     """Open a file, handling compression if necessary."""
     if compression == "infer":
         compression = infer_compression(file_path)
     if compression in ("brotli", "br"):
-        return brotli_open(file_path, mode)
+        return with_kwargs(brotli_open, compression_args, file_path, mode)
     if compression in ("gzip", "gz"):
-        return gzip.open(file_path, mode)
+        return with_kwargs(gzip.open, compression_args, file_path, mode)
     if compression == "pigz":
-        return pigz_open(file_path, mode, processes=processes) if mode[0] == "w" else gzip.open(file_path, mode)
+        return with_kwargs(pigz_open if mode[0] == "w" else gzip.open, compression_args, file_path, mode)
     if compression == "bz2":
-        return bz2.open(file_path, mode)
+        return with_kwargs(bz2.open, compression_args, file_path, mode)
     if compression == "lz4":
-        return lz4.frame.open(file_path, mode)
+        return with_kwargs(lz4.frame.open, compression_args, file_path, mode)
     if compression in ("lzma", "xz"):
-        return lzma.open(file_path, mode)
+        return with_kwargs(lzma.open, compression_args, file_path, mode)
     if compression == "snappy":
-        return snappy_open(file_path, mode)
+        return with_kwargs(snappy_open, compression_args, file_path, mode)
     if compression == "zstd":
-        return zstandard.open(file_path, mode)
+        return with_kwargs(zstandard.open, compression_args, file_path, mode)
     if compression is None or compression == "none":
-        return open(file_path, mode)
+        return with_kwargs(open, compression_args, file_path, mode)
     raise ValueError(f"Unsupported compression type: {compression}")
 
 def pigz_available():

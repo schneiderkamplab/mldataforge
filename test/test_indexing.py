@@ -69,7 +69,7 @@ def test_shuffling(seed, index, out_file, in_file, tmp_dir, scale_factor):
         output_dir=str(tmp_dir / out_file),
         mds_directories=[str(tmp_dir / in_file)],
         compression=None,
-        processes=64,
+        compression_args={"processes": 64},
         overwrite=True,
         yes=True,
         batch_size=2**10*scale_factor,
