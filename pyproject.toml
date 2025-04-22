@@ -30,9 +30,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-dependency"]
+test = ["pytest", "pytest-dependency", "transformers"]
 dev = ["build", "twine"]
-all = ["build", "twine", "pytest", "pytest-dependency"]
+all = ["build", "twine", "pytest", "pytest-dependency", "transformers"]
 
 [project.urls]
 "Homepage" = "https://github.com/schneiderkamplab/mldataforge"

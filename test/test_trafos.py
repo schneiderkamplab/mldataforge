@@ -1,5 +1,6 @@
 import filecmp
 from mldataforge.commands.join import join_jsonl, join_mds, join_parquet
+from mldataforge.utils import load_mds_directories, save_mds
 import pytest
 
 @pytest.mark.dependency(depends=["conversion"])
@@ -64,3 +65,22 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor):
         )
         if "unflatten_json" in trafo or "idenitity" in trafo:
             assert filecmp.cmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.parquet"), shallow=False), f"Files {out_file} and test.jsonl.parquet are different"
+"""
+compression=None, compression_args={"processes": 64}, buf_size=2**24, pigz=True, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None):
+"""
+@pytest.mark.dependency(name="conversion")
+@pytest.mark.dependency(name="tokenize")
+def test_tokenize(tmp_dir):
+    save_mds(
+        load_mds_directories([str(tmp_dir / "test.jsonl.mds")]),
+        output_dir=str(tmp_dir / "test.tokenized.mds"),
+        overwrite=True,
+        yes=True,
+        trafo="""from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-2-1124-7B-Instruct")
+def process(sample):
+    sample["text"] = tokenizer.apply_chat_template(sample["messages"], tokenize=False)
+    sample["input_ids"] = tokenizer(sample["text"], return_tensors="np")["input_ids"]
+    return sample
+""",
+    )
