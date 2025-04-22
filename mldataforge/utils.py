@@ -92,9 +92,37 @@ def _infer_mds_encoding(value):
     if isinstance(value, int):
         return 'int'
     if isinstance(value, float):
-        return 'float32'
+        return 'float64'
     if isinstance(value, bool):
         return 'bool'
+    if isinstance(value, (list, dict, bool, type(None))):
+        return 'json'
+    if isinstance(value, bytes):
+        return 'bytes'
+    if isinstance(value, np.ndarray):
+        return 'ndarray'
+    if isinstance(value, np.int8):
+        return 'int8'
+    if isinstance(value, np.int16):
+        return 'int16'
+    if isinstance(value, np.int32):
+        return 'int32'
+    if isinstance(value, np.int64):
+        return 'int64'
+    if isinstance(value, np.uint8):
+        return 'uint8'
+    if isinstance(value, np.uint16):
+        return 'uint16'
+    if isinstance(value, np.uint32):
+        return 'uint32'
+    if isinstance(value, np.uint64):
+        return 'uint64'
+    if isinstance(value, np.float16):
+        return 'float16'
+    if isinstance(value, np.float32):
+        return 'float32'
+    if isinstance(value, np.float64):
+        return 'float64'
     return 'pkl'
 
 def join_indices(input_files):
