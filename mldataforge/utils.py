@@ -1,3 +1,7 @@
+from collections.abc import Sequence
+import PIL
+import PIL.JpegImagePlugin
+import PIL.PngImagePlugin
 import click
 from datasets import concatenate_datasets, load_dataset
 import json
@@ -95,8 +99,6 @@ def _infer_mds_encoding(value):
         return 'float64'
     if isinstance(value, bool):
         return 'bool'
-    if isinstance(value, (list, dict, bool, type(None))):
-        return 'json'
     if isinstance(value, bytes):
         return 'bytes'
     if isinstance(value, np.ndarray):
@@ -123,6 +125,22 @@ def _infer_mds_encoding(value):
         return 'float32'
     if isinstance(value, np.float64):
         return 'float64'
+    if isinstance(value, PIL.JpegImagePlugin.JpegImageFile):
+        return 'JPEG'   
+    if isinstance(value, PIL.PngImagePlugin.PngImageFile):
+        return 'PNG'
+    if isinstance(value, PIL.Image.Image):
+        return 'PIL'
+    if isinstance(value, Sequence) and all(isinstance(x, bytearray) for x in value):
+        return 'jpeg_array'
+    if isinstance(value, list) and all(isinstance(x, (PIL.JpegImagePlugin.JpegImageFile)) for x in value):
+        return 'list[jpeg]'
+    if isinstance(value, list) and all(isinstance(x, (PIL.PngImagePlugin.PngImageFile)) for x in value):
+        return 'list[png]'
+    if isinstance(value, list) and all(isinstance(x, (PIL.Image.Image)) for x in value):
+        return 'list[pil]'
+    if isinstance(value, (list, dict, bool, type(None))):
+        return 'json'
     return 'pkl'
 
 def join_indices(input_files):
