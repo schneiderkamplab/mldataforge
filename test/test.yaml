@@ -1,0 +1,34 @@
+defaults:
+  overwrite: true
+  "yes": true
+  bulk: false
+steps:
+  - sources:
+    - fmt: jsonl
+      path: test.jsonl
+    sink:
+      fmt: mds
+      path: test.pipelined.mds
+  - sources:
+    - fmt: mds
+      path: test.pipelined.mds
+    shuffle: 42
+    sink:
+      fmt: named
+      name: shuffled
+  - sources:
+    - fmt: parquet
+      path: test.jsonl.parquet
+    sink:
+      fmt: named
+      name: straight
+  - sources:
+    - fmt: named
+      name: shuffled
+    - fmt: named
+      name: straight
+    transformations:
+      - test/trafo_tokenize.py
+    sink:
+      fmt: jsonl
+      path: test.pipelined.jsonl.gz
