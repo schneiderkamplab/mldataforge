@@ -1,9 +1,10 @@
+import bisect
 from collections.abc import Sequence
 import PIL
 import PIL.JpegImagePlugin
 import PIL.PngImagePlugin
 import click
-from datasets import concatenate_datasets, load_dataset
+from datasets import Dataset, load_dataset
 import json
 import numpy as np
 from pathlib import Path
@@ -11,7 +12,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import os
 import shutil
-from streaming import StreamingDataset
+from streaming.base import StreamingDataset
 from tqdm import tqdm
 import yaml
 
@@ -21,6 +22,8 @@ from .mds import MDSBulkReader, MDSWriter
 from .trafos import get_transformations
 
 __all__ = [
+    "CFG",
+    "ConcatDataset",
     "check_arguments",
     "confirm_overwrite",
     "count_mds",
@@ -37,9 +40,31 @@ __all__ = [
 ]
 
 CFG = {
-    "progess": True,
-    "echo": True,
+    "progress": True,
+    "echo": False,
 }
+
+class ConcatDataset(Dataset):
+    def __init__(self, datasets):
+        self.datasets = datasets
+        self.cumulative_lengths = [0]
+        for ds in datasets:
+            self.cumulative_lengths.append(self.cumulative_lengths[-1] + len(ds))
+
+    def __len__(self):
+        return self.cumulative_lengths[-1]
+
+    def __getitem__(self, index):
+        if index < 0 or index >= len(self):
+            raise IndexError("Index out of range")
+
+        dataset_idx = bisect.bisect_right(self.cumulative_lengths, index) - 1
+        local_index = index - self.cumulative_lengths[dataset_idx]
+        return self.datasets[dataset_idx][local_index]
+
+    def __iter__(self):
+        for ds in self.datasets:
+            yield from ds
 
 def _batch_iterable(iterable, batch_size):
     batch = []
@@ -204,10 +229,10 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
             raise click.BadArgumentUsage("Bulk reader does not support shuffling by design.")
         if index is not None:
             raise click.BadArgumentUsage("Cannot use index and shuffling simultaneously.")
-    if index is not None:
+    elif index is not None:
         if bulk:
             raise click.BadArgumentUsage("Bulk reader does not support indexing by design.")
-    if bulk:
+    elif bulk:
         return MDSBulkReader(mds_directories, split=split)
     dss = []
     for mds_directory in mds_directories:
@@ -225,7 +250,7 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
     if len(dss) == 1:
         ds = dss[0]
     else:
-        ds = concatenate_datasets(dsets=dss)
+        ds = ConcatDataset(dss)
         if CFG["echo"]:
             click.echo(f"Concatenated {len(dss)} datasets")
     if shuffle is not None:
@@ -255,9 +280,7 @@ def load_pipeline_config(pipeline_config):
             cfg = json.load(f)
         else:
             raise click.BadParameter(f"Invalid pipeline config file (neither yaml nor json): {pipeline_config}")
-    if isinstance(cfg, dict):
-        cfg = [cfg]
-    assert isinstance(cfg, list)
+    assert isinstance(cfg, dict)
     return cfg
 
 def save_index(indices, output_file, overwrite=True, yes=True):
