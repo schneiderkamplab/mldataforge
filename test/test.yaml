@@ -4,8 +4,7 @@ defaults:
   bulk: false
 steps:
   - sources:
-    - fmt: jsonl
-      path: test.jsonl
+    - "*.jsonl"
     sink:
       fmt: mds
       path: test.pipelined.mds
@@ -15,7 +14,7 @@ steps:
     sink:
       name: shuffled
   - sources:
-    - test.jsonl.parquet
+    - "*.parquet"
     sink:
       straight
   - sources:
