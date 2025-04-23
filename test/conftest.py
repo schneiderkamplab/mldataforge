@@ -15,7 +15,8 @@ def pytest_addoption(parser):
 
 @pytest.fixture(autouse=True)
 def disable_progress_bar(request):
-    utils._NO_PROGESS = not request.config.getoption("--progress")
+    utils.CFG["progress"]= request.config.getoption("--progress")
+    utils.CFG["echo"] = False
 
 @pytest.fixture(autouse=True)
 def compressions(request):

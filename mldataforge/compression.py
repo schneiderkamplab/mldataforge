@@ -1,4 +1,5 @@
 import bz2
+import click
 import inspect
 from isal import igzip as gzip
 import lz4
@@ -162,7 +163,7 @@ def pigz_compress(input_file, output_file, processes=64, buf_size=2**24, keep=Fa
     if not keep:
         os.remove(input_file)
         if not quiet:
-            print(f"Removed {input_file}")
+            click.echo(f"Removed {input_file}")
 
 def use_pigz(compression, no_pigz=False):
     """Determine if pigz should be used based on the compression type."""

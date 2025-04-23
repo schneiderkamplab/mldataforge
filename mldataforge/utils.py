@@ -5,7 +5,6 @@ import PIL.PngImagePlugin
 import click
 from datasets import concatenate_datasets, load_dataset
 import json
-from mltiming import timing
 import numpy as np
 from pathlib import Path
 import pyarrow as pa
@@ -14,6 +13,7 @@ import os
 import shutil
 from streaming import StreamingDataset
 from tqdm import tqdm
+import yaml
 
 from .compression import determine_compression, open_compression, pigz_compress
 from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation
@@ -29,16 +29,17 @@ __all__ = [
     "load_jsonl_files",
     "load_mds_directories",
     "load_parquet_files",
+    "load_pipeline_config",
     "save_index",
     "save_jsonl",
     "save_mds",
     "save_parquet",
 ]
 
-_NO_PROGESS = False
-def set_progress(value):
-    global _NO_PROGESS
-    _NO_PROGESS = value
+CFG = {
+    "progess": True,
+    "echo": True,
+}
 
 def _batch_iterable(iterable, batch_size):
     batch = []
@@ -59,22 +60,22 @@ def check_arguments(output_path, overwrite, yes, input_paths=None):
                 raise click.BadParameter(f"Output file '{output_path}' already exists. Use --overwrite to overwrite.")
             if not yes:
                 confirm_overwrite(f"Output file '{output_path}' already exists. Do you want to delete it?")
-            with timing(message=f"Deleting existing file '{output_path}'"):
-                os.remove(output_path)
+            os.remove(output_path)
+            if CFG["echo"]:
+                click.echo(f"Deleted existing file '{output_path}'")
         elif os.path.isdir(output_path):
             if not overwrite:
                 raise click.BadParameter(f"Output directory '{output_path}' already exists. Use --overwrite to overwrite.")
             if not yes:
                 confirm_overwrite(f"Output directory '{output_path}' already exists. Do you want to delete this directory and all its contents?")
-            with timing(message=f"Deleting existing directory '{output_path}'"):
-                shutil.rmtree(output_path)
+            shutil.rmtree(output_path)
+            if CFG["echo"]:
+                click.echo(f"Deleted existing directory '{output_path}'")
         else:
             raise click.BadParameter(f"Output path '{output_path}' exists but is neither a file nor a directory.")
 
 def confirm_overwrite(message):
-    print(message)
-    response = input("Are you sure you want to proceed? (yes/no): ")
-    if response.lower() != 'yes':
+    if not click.confirm("Are you sure you want to proceed?"):
         raise click.Abort()
 
 def count_mds(mds_directories):
@@ -200,9 +201,12 @@ def load_jsonl_files(jsonl_files):
 def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True, shuffle=None, index=None):
     if shuffle is not None:
         if bulk:
-            raise ValueError("Bulk reader does not support shuffling by design.")
+            raise click.BadArgumentUsage("Bulk reader does not support shuffling by design.")
         if index is not None:
-            raise ValueError("Cannot use index and shuffling simultaneously.")
+            raise click.BadArgumentUsage("Cannot use index and shuffling simultaneously.")
+    if index is not None:
+        if bulk:
+            raise click.BadArgumentUsage("Bulk reader does not support indexing by design.")
     if bulk:
         return MDSBulkReader(mds_directories, split=split)
     dss = []
@@ -221,23 +225,40 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
     if len(dss) == 1:
         ds = dss[0]
     else:
-        with timing(message=f"Concatenating {len(dss)} datasets"):
-            ds = concatenate_datasets(dsets=dss)
+        ds = concatenate_datasets(dsets=dss)
+        if CFG["echo"]:
+            click.echo(f"Concatenated {len(dss)} datasets")
     if shuffle is not None:
-        with timing(message="Creating shuffle indices"):
-            indices = shuffle_permutation(len(ds), seed=abs(shuffle))
-            if shuffle < 0:
-                indices = reverse_permutation(indices)
+        indices = shuffle_permutation(len(ds), seed=abs(shuffle))
+        if shuffle < 0:
+            indices = reverse_permutation(indices)
+        if CFG["echo"]:
+            click.echo(f"Created shuffle indices for {len(ds)} samples")
         ds = IndexedDatasetView(ds, indices)
     if index is not None:
-        with timing(message="Loading index"):
-            indices = load_index(index)
+        indices = load_index(index)
+        if CFG["echo"]:
+            click.echo(f"Loaded index with {len(indices)} indices")
         ds = IndexedDatasetView(ds, indices)
     return ds
 
 def load_parquet_files(parquet_files):
     ds = load_dataset("parquet", data_files=parquet_files, split="train")
     return ds
+
+def load_pipeline_config(pipeline_config):
+    cfg_path = Path(pipeline_config)
+    with open(pipeline_config, "rt") as f:
+        if cfg_path.suffix.lower() in (".yaml", ".yml"):
+            cfg = yaml.safe_load(f)
+        elif cfg_path.suffix.lower() == ".json":
+            cfg = json.load(f)
+        else:
+            raise click.BadParameter(f"Invalid pipeline config file (neither yaml nor json): {pipeline_config}")
+    if isinstance(cfg, dict):
+        cfg = [cfg]
+    assert isinstance(cfg, list)
+    return cfg
 
 def save_index(indices, output_file, overwrite=True, yes=True):
     with open(output_file, "wb") as f:
@@ -247,7 +268,7 @@ def save_jsonl(iterable, output_file, compression=None, compression_args={"proce
     f = None
     part = 0
     trafo = get_transformations(trafo)
-    for item in tqdm(trafo(iterable), desc="Writing to JSONL", unit="sample", disable=_NO_PROGESS):
+    for item in tqdm(trafo(iterable), desc="Writing to JSONL", unit="sample", disable=not CFG["progress"]):
         if f is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
@@ -270,7 +291,7 @@ def save_mds(it, output_dir, compression=None, compression_args={"processes": 64
     part = 0
     files = []
     trafo = get_transformations(trafo)
-    for sample in tqdm(trafo(it), desc="Writing to MDS", unit="sample", disable=_NO_PROGESS):
+    for sample in tqdm(trafo(it), desc="Writing to MDS", unit="sample", disable=not CFG["progress"]):
         if writer is None:
             part_dir = output_dir.format(part=part)
             check_arguments(part_dir, overwrite, yes)
@@ -294,11 +315,11 @@ def save_mds(it, output_dir, compression=None, compression_args={"processes": 64
             name2info = {shard["raw_data"]["basename"]: shard for shard in index["shards"]}
             file_names = [file for file in os.listdir(output_dir) if file.endswith(".mds")]
             assert set(file_names) == set(name2info.keys())
-            for file_name in tqdm(file_names, desc="Compressing with pigz", unit="file", disable=_NO_PROGESS):
+            for file_name in tqdm(file_names, desc="Compressing with pigz", unit="file", disable=not CFG["progress"]):
                 compressed_file_name = file_name + ".gz"
                 file_path = os.path.join(output_dir, file_name)
                 compressed_file_path = os.path.join(output_dir, compressed_file_name)
-                pigz_compress(file_path, compressed_file_path, compression_args.get("processes", 64), buf_size=buf_size, keep=False, quiet=True)
+                pigz_compress(file_path, compressed_file_path, compression_args.get("processes", 64), buf_size=buf_size, keep=False)
                 name2info[file_name]["compression"] = "gz"
                 name2info[file_name]["zip_data"] = {
                     "basename": compressed_file_name,
@@ -306,14 +327,15 @@ def save_mds(it, output_dir, compression=None, compression_args={"processes": 64
                     "hashes": {},
                 }
             json.dump(index, open(index_path, "wt"))
-            print(f"Compressed {output_dir} with pigz")
+            if CFG["echo"]:
+                click.echo(f"Compressed {index_path} with pigz")
 
 def save_parquet(it, output_file, compression=None, compression_args={"processes": 64}, batch_size=2**16, size_hint=None, overwrite=True, yes=True, trafo=None):
     compression = determine_compression("parquet", output_file, compression)
     writer = None
     part = 0
     trafo = get_transformations(trafo)
-    it = tqdm(it, desc="Writing to Parquet", unit="sample", disable=_NO_PROGESS)
+    it = tqdm(it, desc="Writing to Parquet", unit="sample", disable=not CFG["progress"])
     for batch in _batch_iterable(trafo(it), batch_size):
         table = pa.Table.from_pylist(batch)
         if writer is None:
@@ -339,6 +361,6 @@ def _sort_nested(obj):
         return obj
 
 def _streaming_jsonl(jsonl_files, compressions):
-    for jsonl_file, compression in tqdm(zip(jsonl_files, compressions), desc="Loading JSONL files", unit="file", disable=_NO_PROGESS):
+    for jsonl_file, compression in tqdm(zip(jsonl_files, compressions), desc="Loading JSONL files", unit="file", disable=not CFG["progress"]):
         for line in open_compression(jsonl_file, mode="rt", compression=compression):
             yield json.loads(line)

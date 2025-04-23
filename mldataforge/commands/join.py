@@ -46,7 +46,6 @@ def join_jsonl(output_file, jsonl_files, compression, compression_args, overwrit
 @shuffle_option()
 @index_option()
 def mds(**kwargs):
-    print(kwargs)
     join_mds(**kwargs)
 def join_mds(output_dir, mds_directories, compression, compression_args, overwrite, yes, batch_size, buf_size, no_bulk, shard_size, no_pigz, trafo, shuffle, index):
     check_arguments(output_dir, overwrite, yes, mds_directories)
