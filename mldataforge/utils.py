@@ -18,7 +18,7 @@ from tqdm import tqdm
 from .compression import determine_compression, open_compression, pigz_compress
 from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation
 from .mds import MDSBulkReader, MDSWriter
-from .trafos import Transformations
+from .trafos import get_transformations
 
 __all__ = [
     "check_arguments",
@@ -88,6 +88,28 @@ def count_mds(mds_directories):
         for shard in index["shards"]:
             counter += shard["samples"]
     return counter
+
+def _ensure_json_encoding(value):
+    """Ensure that the value is JSON serializable."""
+    if isinstance(value, (str, int, float, bool, type(None))):
+        return value
+    if isinstance(value, bytes):
+        return value.decode("latin1")
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, list):
+        return [_ensure_json_encoding(item) for item in value]
+    if isinstance(value, dict):
+        return {_ensure_json_key(key): _ensure_json_encoding(val) for key, val in value.items()}
+    raise TypeError(f"Unsupported type for JSON serialization: {type(value)}")
+
+def _ensure_json_key(key):
+    """Ensure that the key is a valid JSON key."""
+    if isinstance(key, str):
+        return key
+    if isinstance(key, bytes):
+        return key.decode("latin1")
+    return str(key)
 
 def _infer_mds_encoding(value):
     """Determine the MDS encoding for a given value."""
@@ -224,13 +246,14 @@ def save_index(indices, output_file, overwrite=True, yes=True):
 def save_jsonl(iterable, output_file, compression=None, compression_args={"processes": 64}, size_hint=None, overwrite=True, yes=True, trafo=None):
     f = None
     part = 0
-    trafo = Transformations([] if trafo is None else [trafo])
+    trafo = get_transformations(trafo)
     for item in tqdm(trafo(iterable), desc="Writing to JSONL", unit="sample", disable=_NO_PROGESS):
         if f is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
             f = open_compression(part_file, mode="wb", compression=compression, compression_args=compression_args)
         item = _sort_nested(item)
+        item = _ensure_json_encoding(item)
         f.write(f"{json.dumps(item)}\n".encode("utf-8"))
         if size_hint is not None and f.tell() >= size_hint:
             f.close()
@@ -246,7 +269,7 @@ def save_mds(it, output_dir, compression=None, compression_args={"processes": 64
     writer = None
     part = 0
     files = []
-    trafo = Transformations([] if trafo is None else [trafo])
+    trafo = get_transformations(trafo)
     for sample in tqdm(trafo(it), desc="Writing to MDS", unit="sample", disable=_NO_PROGESS):
         if writer is None:
             part_dir = output_dir.format(part=part)
@@ -289,7 +312,7 @@ def save_parquet(it, output_file, compression=None, compression_args={"processes
     compression = determine_compression("parquet", output_file, compression)
     writer = None
     part = 0
-    trafo = Transformations([] if trafo is None else [trafo])
+    trafo = get_transformations(trafo)
     it = tqdm(it, desc="Writing to Parquet", unit="sample", disable=_NO_PROGESS)
     for batch in _batch_iterable(trafo(it), batch_size):
         table = pa.Table.from_pylist(batch)

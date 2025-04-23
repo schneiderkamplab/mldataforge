@@ -1,18 +1,24 @@
+import ast
+from pathlib import Path
 import re
+from typing import Callable
 
-__all__ = ['Transformation', 'Transformations', 'flatten_json', 'identity', 'unflatten_json']
+__all__ = ['Transformation', 'Transformations', 'flatten_json', 'get_transformations', 'identity', 'unflatten_json']
 
 class Transformation:
-    def __init__(self, code: str):
+    def __init__(self, code: str | Callable):
         self.code = code
         self._init_context()
 
     def _init_context(self):
-        self.global_context = {}
-        exec(self.code, self.global_context)
-        if 'process' not in self.global_context or not callable(self.global_context['process']):
-            raise ValueError("code must define a callable named 'process'")
-        self.process = self.global_context['process']
+        global_context = {}
+        if callable(self.code):
+            self.process = self.code
+        else:
+            exec(self.code, global_context)
+            if 'process' not in global_context or not callable(global_context['process']):
+                raise ValueError("code must define a callable named 'process'")
+            self.process = global_context['process']
         self._flushable = hasattr(self.process, 'flushable') and self.process.flushable
 
     def _normalize_outputs(self, result):
@@ -45,8 +51,9 @@ class Transformation:
         raise TypeError("Length is not available for this transformation.")
 
 class Transformations:
-    def __init__(self, codes: list[str], indices=None):
+    def __init__(self, codes: list[str | Callable], indices=None):
         self.pipeline = [Transformation(code) for code in codes]
+        self.indices = indices
 
     def __call__(self, dataset):
         result = dataset
@@ -87,6 +94,21 @@ def flatten_json(obj, parent_key='', sep='.', escape_char='\\'):
     else:
         items.append((parent_key, obj))
     return dict(items)
+
+def get_transformations(trafo: list[str | Callable], indices=None):
+    codes = []
+    if not trafo:
+        return Transformations(codes=codes, indices=indices)
+    for t in trafo:
+        if Path(t).is_file():
+            codes.append(Path(t).read_text())
+        else:
+            try:
+                ast.parse(t)
+                codes.append(t)
+            except SyntaxError:
+                raise ValueError(f"Invalid transformation (neither an existing file nor valid Python code): {t}")
+    return Transformations(codes=codes, indices=indices)
 
 def identity(obj):
     return obj

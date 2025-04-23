@@ -197,6 +197,7 @@ def trafo_option():
         default=None,
         type=str,
         help="Transformation function to apply to the dataset.",
+        multiple=True,
     )
 
 def yes_option():

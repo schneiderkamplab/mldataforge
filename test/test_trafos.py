@@ -1,20 +1,23 @@
 import filecmp
 from mldataforge.commands.join import join_jsonl, join_mds, join_parquet
-from mldataforge.utils import load_mds_directories, save_mds
+from pathlib import Path
 import pytest
 
 @pytest.mark.dependency(depends=["conversion"])
 @pytest.mark.dependency(name="trafos")
 @pytest.mark.parametrize("fmt,trafo,out_file,in_file", [
-    ("jsonl", "from mldataforge.trafos import identity as process", "test.identity.jsonl", "test.jsonl"),
-    ("jsonl", "from mldataforge.trafos import flatten_json as process", "test.flattened.jsonl", "test.jsonl"),
-    ("jsonl", "from mldataforge.trafos import unflatten_json as process", "test.unflattened.jsonl", "test.flattened.jsonl"),
-    ("mds", "from mldataforge.trafos import identity as process", "test.identity.mds", "test.jsonl.mds"),
-    ("mds", "from mldataforge.trafos import flatten_json as process", "test.flattened.mds", "test.jsonl.mds"),
-    ("mds", "from mldataforge.trafos import unflatten_json as process", "test.unflattened.mds", "test.flattened.mds"),
-    ("parquet", "from mldataforge.trafos import identity as process", "test.identity.parquet", "test.jsonl.parquet"),
-    ("parquet", "from mldataforge.trafos import flatten_json as process", "test.flattened.parquet", "test.jsonl.parquet"),
-    ("parquet", "from mldataforge.trafos import unflatten_json as process", "test.unflattened.parquet", "test.flattened.parquet"),
+    ("jsonl", ["from mldataforge.trafos import identity as process"], "test.identity.jsonl", "test.jsonl"),
+    ("jsonl", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.jsonl", "test.jsonl"),
+    ("jsonl", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.jsonl", "test.flattened.jsonl"),
+    ("mds", ["from mldataforge.trafos import identity as process"], "test.identity.mds", "test.jsonl.mds"),
+    ("mds", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.mds", "test.jsonl.mds"),
+    ("mds", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.mds", "test.flattened.mds"),
+    ("parquet", ["from mldataforge.trafos import identity as process"], "test.identity.parquet", "test.jsonl.parquet"),
+    ("parquet", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.parquet", "test.jsonl.parquet"),
+    ("parquet", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.parquet", "test.flattened.parquet"),
+    ("jsonl", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.jsonl", "test.jsonl"),
+    ("mds", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.mds", "test.jsonl.mds"),
+    ("parquet", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.parquet", "test.jsonl.parquet"),
 ])
 def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor):
     if fmt == "jsonl":
@@ -65,22 +68,3 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor):
         )
         if "unflatten_json" in trafo or "idenitity" in trafo:
             assert filecmp.cmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.parquet"), shallow=False), f"Files {out_file} and test.jsonl.parquet are different"
-"""
-compression=None, compression_args={"processes": 64}, buf_size=2**24, pigz=True, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None):
-"""
-@pytest.mark.dependency(name="conversion")
-@pytest.mark.dependency(name="tokenize")
-def test_tokenize(tmp_dir):
-    save_mds(
-        load_mds_directories([str(tmp_dir / "test.jsonl.mds")]),
-        output_dir=str(tmp_dir / "test.tokenized.mds"),
-        overwrite=True,
-        yes=True,
-        trafo="""from transformers import AutoTokenizer
-tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-2-1124-7B-Instruct")
-def process(sample):
-    sample["text"] = tokenizer.apply_chat_template(sample["messages"], tokenize=False)
-    sample["input_ids"] = tokenizer(sample["text"], return_tensors="np")["input_ids"]
-    return sample
-""",
-    )
