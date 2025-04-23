@@ -10,25 +10,18 @@ steps:
       fmt: mds
       path: test.pipelined.mds
   - sources:
-    - fmt: mds
-      path: test.pipelined.mds
+    - path: test.pipelined.mds
     shuffle: 42
     sink:
-      fmt: named
       name: shuffled
   - sources:
-    - fmt: parquet
-      path: test.jsonl.parquet
+    - test.jsonl.parquet
     sink:
-      fmt: named
-      name: straight
+      straight
   - sources:
-    - fmt: named
-      name: shuffled
-    - fmt: named
-      name: straight
+    - shuffled
+    - straight
     transformations:
       - test/trafo_tokenize.py
     sink:
-      fmt: jsonl
-      path: test.pipelined.jsonl.gz
+      test.pipelined.jsonl.gz
