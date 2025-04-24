@@ -31,6 +31,16 @@ def shuffle_permutation(n, seed=int):
     rng = np.random.default_rng(seed)
     return rng.permutation(n).astype(np.uint64)
 
+def sort_permutation(dataset, sort_key):
+    if isinstance(sort_key, str):
+        global_context = {}
+        exec(sort_key, global_context)
+        if 'key' not in global_context or not callable(global_context['key']):
+            raise ValueError("code must define a callable named 'key'")
+        sort_key = global_context['key']
+    indices = np.argsort([sort_key(item) for item in dataset], kind='stable')
+    return indices.astype(np.uint64)
+
 def reverse_permutation(indices):
     n = len(indices)
     reverse_indices = np.empty(n, dtype=np.uint64)

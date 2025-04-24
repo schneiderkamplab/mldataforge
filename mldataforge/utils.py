@@ -17,7 +17,7 @@ from tqdm import tqdm
 import yaml
 
 from .compression import determine_compression, open_compression, pigz_compress
-from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation
+from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation, sort_permutation
 from .mds import MDSBulkReader, MDSWriter
 from .trafos import get_transformations
 
@@ -223,15 +223,22 @@ def load_jsonl_files(jsonl_files):
         return _streaming_jsonl(jsonl_files, compressions)
     return load_dataset("json", data_files=jsonl_files, split="train")
 
-def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True, shuffle=None, index=None):
+def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True, shuffle=None, index=None, sort_key=None):
     if shuffle is not None:
         if bulk:
             raise click.BadArgumentUsage("Bulk reader does not support shuffling by design.")
         if index is not None:
             raise click.BadArgumentUsage("Cannot use index and shuffling simultaneously.")
+        if sort_key is not None:
+            raise click.BadArgumentUsage("Cannot use sort key and shuffling simultaneously.")
     elif index is not None:
         if bulk:
             raise click.BadArgumentUsage("Bulk reader does not support indexing by design.")
+        if sort_key is not None:
+            raise click.BadArgumentUsage("Cannot use sort key and indexing simultaneously.")
+    elif sort_key is not None:
+        if bulk:
+            raise click.BadArgumentUsage("Bulk reader does not support sorting by design.")
     elif bulk:
         return MDSBulkReader(mds_directories, split=split)
     dss = []
@@ -264,6 +271,11 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
         indices = load_index(index)
         if CFG["echo"]:
             click.echo(f"Loaded index with {len(indices)} indices")
+        ds = IndexedDatasetView(ds, indices)
+    if sort_key is not None:
+        indices = sort_permutation(ds, sort_key)
+        if CFG["echo"]:
+            click.echo(f"Created sort key with {len(indices)} indices")
         ds = IndexedDatasetView(ds, indices)
     return ds
 

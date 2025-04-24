@@ -19,6 +19,7 @@ __all__ = [
     "shard_size_option",
     "shuffle_option",
     "size_hint_option",
+    "sort_key_option",
     "trafo_option",
     "yes_option",
 ]
@@ -186,6 +187,17 @@ def size_hint_option(default=2**26):
         "--size-hint",
         default=default,
         help=f"Size hint for the dataset (default: {default}).",
+    )
+
+def sort_key_option():
+    """
+    Option for specifying the sort key.
+    """
+    return click.option(
+        "--sort-key",
+        default=None,
+        type=str,
+        help="Sort key function for the dataset.",
     )
 
 def trafo_option():

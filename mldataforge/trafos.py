@@ -11,10 +11,10 @@ class Transformation:
         self._init_context()
 
     def _init_context(self):
-        global_context = {}
         if callable(self.code):
             self.process = self.code
         else:
+            global_context = {}
             exec(self.code, global_context)
             if 'process' not in global_context or not callable(global_context['process']):
                 raise ValueError("code must define a callable named 'process'")

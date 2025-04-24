@@ -48,6 +48,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor):
             trafo=trafo,
             shuffle=None,
             index=None,
+            sort_key=None,
         )
         if "unflatten_json" in trafo or "idenitity" in trafo:
             dircmp = filecmp.dircmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.mds"))

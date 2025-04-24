@@ -67,6 +67,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor,
             trafo=None,
             shuffle=None,
             index=None,
+            sort_key=None,
         )
     elif fmt == "parquet":
         join_parquet(
@@ -135,6 +136,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir, scale_factor):
             trafo=None,
             shuffle=None,
             index=None,
+            sort_key=None,
         )
         assert filecmp.cmp(str(tmp_dir / "test.jsonl"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to test.jsonl"
     elif fmt == "parquet":

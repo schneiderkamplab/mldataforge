@@ -80,6 +80,7 @@ def test_shuffling(seed, index, out_file, in_file, tmp_dir, scale_factor):
         trafo=None,
         shuffle=seed,
         index=index,
+        sort_key=None,
     )
     dircmp = filecmp.dircmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.mds"))
     if seed is None or seed < 0:

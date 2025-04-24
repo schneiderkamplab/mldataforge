@@ -4,17 +4,17 @@ defaults:
   bulk: false
 steps:
   - sources:
-    - "*.jsonl"
+    - test.jsonl
     sink:
       fmt: mds
       path: test.pipelined.mds
   - sources:
-    - path: test.pipelined.mds
+    - path: test.pipelined?mds
     shuffle: 42
     sink:
       name: shuffled
   - sources:
-    - "*.parquet"
+    - test.jsonl.p*t
     sink:
       straight
   - sources:
@@ -23,4 +23,9 @@ steps:
     transformations:
       - test/trafo_tokenize.py
     sink:
-      test.pipelined.jsonl.gz
+      test.concatenated.mds
+  - sources:
+    - test.concatenated.mds
+    sort_key: "def key(sample): return len(sample['input_ids'])"
+    sink:
+      test.sorted.jsonl.gz
