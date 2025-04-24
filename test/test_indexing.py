@@ -90,3 +90,50 @@ def test_shuffling(seed, index, out_file, in_file, tmp_dir, scale_factor):
     assert len(dircmp.left_only) == 0, f"Left only files: {dircmp.left_only}"
     assert len(dircmp.right_only) == 0, f"Right only files: {dircmp.right_only}"
     assert len(dircmp.funny_files) == 0, f"Funny files: {dircmp.funny_files}"        
+
+@pytest.mark.dependency(depends=["trafos"])
+@pytest.mark.dependency(name="sorting")
+@pytest.mark.parametrize("sort_key", [
+    "def key(sample): return sample['id']",
+    "def key(sample): return len(sample['input_ids'])",
+])
+def test_sorting(sort_key, tmp_dir):
+    join_mds(
+        output_dir=str(tmp_dir / f"test.sorted.{len(sort_key)}.mds"),
+        mds_directories=[str(tmp_dir / "test.tokenized.mds")],
+        compression=None,
+        compression_args={"processes": 64},
+        overwrite=True,
+        yes=True,
+        batch_size=2**10,
+        buf_size=2**14,
+        no_bulk=True,
+        shard_size=2**26,
+        no_pigz=True,
+        trafo=None,
+        shuffle=None,
+        index=None,
+        sort_key=sort_key,
+    )
+    join_mds(
+        output_dir=str(tmp_dir / f"test.resorted.{len(sort_key)}.mds"),
+        mds_directories=[str(tmp_dir / f"test.sorted.{len(sort_key)}.mds")],
+        compression=None,
+        compression_args={"processes": 64},
+        overwrite=True,
+        yes=True,
+        batch_size=2**10,
+        buf_size=2**14,
+        no_bulk=True,
+        shard_size=2**26,
+        no_pigz=True,
+        trafo=None,
+        shuffle=None,
+        index=None,
+        sort_key=sort_key,
+    )
+    dircmp = filecmp.dircmp(str(tmp_dir / f"test.sorted.{len(sort_key)}.mds"), str(tmp_dir / f"test.resorted.{len(sort_key)}.mds"))
+    assert len(dircmp.diff_files) == 0, f"Different files: {dircmp.diff_files}"
+    assert len(dircmp.left_only) == 0, f"Left only files: {dircmp.left_only}"
+    assert len(dircmp.right_only) == 0, f"Right only files: {dircmp.right_only}"
+    assert len(dircmp.funny_files) == 0, f"Funny files: {dircmp.funny_files}"        

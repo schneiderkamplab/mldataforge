@@ -131,6 +131,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir, scale_factor):
             compression_args={"processes": 64},
             overwrite=True,
             yes=True,
+            split=".",
             batch_size=2**10*scale_factor,
             no_bulk=True,
             trafo=None,

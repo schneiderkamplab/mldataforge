@@ -1,6 +1,6 @@
 import numpy as np
 
-__all__ = ['IndexedDatasetView', 'identity_permutation', 'process_indices', 'reverse_permutation', 'shuffle_permutation']
+__all__ = ['IndexedDatasetView', 'identity_permutation', 'process_indices', 'reverse_permutation', 'shuffle_permutation', 'sort_permutation']
 
 class IndexedDatasetView:
     def __init__(self, dataset, indices):

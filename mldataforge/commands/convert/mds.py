@@ -17,6 +17,7 @@ def mds():
 @compression_args_option()
 @overwrite_option()
 @yes_option()
+@split_option()
 @batch_size_option()
 @no_bulk_option()
 @trafo_option()
@@ -25,10 +26,10 @@ def mds():
 @sort_key_option()
 def jsonl(**kwargs):
     mds_to_jsonl(**kwargs)
-def mds_to_jsonl(output_file, mds_directories, compression, compression_args, overwrite, yes, batch_size, no_bulk, trafo, shuffle, index, sort_key):
+def mds_to_jsonl(output_file, mds_directories, compression, compression_args, overwrite, yes, split, batch_size, no_bulk, trafo, shuffle, index, sort_key):
     check_arguments(output_file, overwrite, yes, mds_directories)
     save_jsonl(
-        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle, index=index, sort_key=sort_key),
+        load_mds_directories(mds_directories, split=split, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle, index=index, sort_key=sort_key),
         output_file,
         compression=compression,
         compression_args=compression_args,
@@ -42,6 +43,7 @@ def mds_to_jsonl(output_file, mds_directories, compression, compression_args, ov
 @compression_args_option()
 @overwrite_option()
 @yes_option()
+@split_option()
 @batch_size_option()
 @no_bulk_option()
 @trafo_option()
@@ -50,10 +52,10 @@ def mds_to_jsonl(output_file, mds_directories, compression, compression_args, ov
 @sort_key_option()
 def parquet(**kwargs):
     mds_to_parquet(**kwargs)
-def mds_to_parquet(output_file, mds_directories, compression, compression_args, overwrite, yes, batch_size, no_bulk, trafo, shuffle, index, sort_key):
+def mds_to_parquet(output_file, mds_directories, compression, compression_args, overwrite, yes, split, batch_size, no_bulk, trafo, shuffle, index, sort_key):
     check_arguments(output_file, overwrite, yes, mds_directories)
     save_parquet(
-        load_mds_directories(mds_directories, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle, index=index, sort_key=sort_key),
+        load_mds_directories(mds_directories, split=split, batch_size=batch_size, bulk=not no_bulk, shuffle=shuffle, index=index, sort_key=sort_key),
         output_file,
         compression=compression,
         compression_args=compression_args,

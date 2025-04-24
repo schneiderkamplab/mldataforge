@@ -27,6 +27,7 @@ __all__ = [
     "check_arguments",
     "confirm_overwrite",
     "count_mds",
+    "get_max_index",
     "join_indices",
     "load_index",
     "load_jsonl_files",
@@ -103,10 +104,10 @@ def confirm_overwrite(message):
     if not click.confirm("Are you sure you want to proceed?"):
         raise click.Abort()
 
-def count_mds(mds_directories):
+def count_mds(mds_directories, split='.'):
     counter = 0
     for mds_directory in mds_directories:
-        index_path = Path(mds_directory) / "index.json"
+        index_path = Path(mds_directory) / split / "index.json"
         if not os.path.exists(index_path):
             raise FileNotFoundError(f"Index file '{index_path}' not found.")
         with open(index_path, "rt") as f:
@@ -114,6 +115,13 @@ def count_mds(mds_directories):
         for shard in index["shards"]:
             counter += shard["samples"]
     return counter
+
+def get_max_index(number, mds_directories, split='.'):
+    if mds_directories:
+        return count_mds(mds_directories, split=split)
+    if number is not None:
+        return number
+    raise click.BadParameter("Either mds_directories or number must be provided.")
 
 def _ensure_json_encoding(value):
     """Ensure that the value is JSON serializable."""

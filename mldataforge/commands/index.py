@@ -22,12 +22,7 @@ def identity(**kwargs):
     index_identity(**kwargs)
 def index_identity(output_file, mds_directories, overwrite, yes, number, offset, every):
     check_arguments(output_file, overwrite, yes)
-    if mds_directories:
-        max_index = count_mds(mds_directories)
-    elif number is not None:
-        max_index = number
-    else:
-        raise click.BadParameter("Either mds_directories or number must be provided.")
+    max_index = get_max_index(number, mds_directories)
     indices = identity_permutation(max_index)
     indices = process_indices(indices, every=every, offset=offset, number=number)
     save_index(indices, output_file)
@@ -53,20 +48,16 @@ def index_join(output_file, input_files, overwrite, yes, number, offset, every):
 @click.argument("mds_directories", type=click.Path(exists=True), nargs=-1)
 @overwrite_option()
 @yes_option()
+@split_option()
 @shuffle_option()
 @number_option()
 @offset_option()
 @every_option()
 def random(**kwargs):
     index_random(**kwargs)
-def index_random(output_file, mds_directories, overwrite, yes, shuffle, number, offset, every):
+def index_random(output_file, mds_directories, overwrite, yes, split, shuffle, number, offset, every):
     check_arguments(output_file, overwrite, yes)
-    if mds_directories:
-        max_index = count_mds(mds_directories)
-    elif number is not None:
-        max_index = number
-    else:
-        raise click.BadParameter("Either mds_directories or number must be provided.")
+    max_index = get_max_index(number, mds_directories, split=split)
     indices = shuffle_permutation(max_index, seed=shuffle)
     indices = process_indices(indices, every=every, offset=offset, number=number)
     save_index(indices, output_file)
@@ -85,6 +76,32 @@ def index_reverse(output_file, input_file, overwrite, yes, number, offset, every
     check_arguments(output_file, overwrite, yes)
     indices = load_index(input_file)
     indices = reverse_permutation(indices)
+    indices = process_indices(indices, every=every, offset=offset, number=number)
+    save_index(indices, output_file)
+
+@index.command()
+@click.argument("output_file", type=click.Path(exists=False), required=True)
+@click.argument("mds_directories", type=click.Path(exists=True), nargs=-1)
+@overwrite_option()
+@yes_option()
+@split_option()
+@batch_size_option()
+@no_bulk_option()
+@number_option()
+@offset_option()
+@every_option()
+@sort_key_option()
+def sort(**kwargs):
+    index_sort(**kwargs)
+def index_sort(output_file, mds_directories, overwrite, yes, split, batch_size, no_bulk, number, offset, every, sort_key):
+    check_arguments(output_file, overwrite, yes)
+    ds = load_mds_directories(
+        mds_directories,
+        split=split,
+        batch_size=batch_size,
+        bulk=not no_bulk,
+    )
+    indices = sort_permutation(ds, sort_key)
     indices = process_indices(indices, every=every, offset=offset, number=number)
     save_index(indices, output_file)
 

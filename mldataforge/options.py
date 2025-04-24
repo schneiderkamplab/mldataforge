@@ -20,6 +20,7 @@ __all__ = [
     "shuffle_option",
     "size_hint_option",
     "sort_key_option",
+    "split_option",
     "trafo_option",
     "yes_option",
 ]
@@ -198,6 +199,17 @@ def sort_key_option():
         default=None,
         type=str,
         help="Sort key function for the dataset.",
+    )
+
+def split_option(default="."):
+    """
+    Option for specifying the split to use.
+    """
+    return click.option(
+        "--split",
+        default=default,
+        type=str,
+        help="Split to use for the dataset (default: {default}).",
     )
 
 def trafo_option():
