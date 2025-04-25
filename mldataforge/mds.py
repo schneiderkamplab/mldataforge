@@ -1,4 +1,6 @@
+import bisect
 from copy import deepcopy
+from datasets import Dataset
 import json
 import numpy as np
 import os
@@ -15,13 +17,17 @@ from typing import Any, Optional, Generator, Self, Union
 from .utils import open_compression
 
 __all__ = [
+    "MDSBulkDatasetReader",
     "MDSBulkReader",
-    "MDSBulkShardReader",
-    "MDSReader",
-    "MDSWriter",
+    "MDSRAMDatasetReader",
+    "MDSRAMReader",
+    "MDSSampleReader",
+    "MDSSampleWriter",
 ]
 
-class MDSBulkReader:
+class MDSBulkDatasetReader:
+    """Reader for MDS format that reads samples fast in linear order. Does not support random access. Supports sample compression."""
+
     def __init__(
         self,
         dirnames: list[str],
@@ -47,11 +53,19 @@ class MDSBulkReader:
 
     def __iter__(self) -> Generator[dict[str, Any], None, None]:
         for shard in self.shards:
-            with MDSBulkShardReader(**shard) as reader:
-                for sample in reader:
-                    yield sample
+            with MDSBulkReader(**shard) as reader:
+                yield from reader
 
-class MDSBulkShardReader:
+    def __enter__(self) -> "MDSBulkDatasetReader":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        for shard in self.shards:
+            shard["fp"].close()
+
+class MDSBulkReader:
+    """Reader for MDS shards that reads samples fast in linear order. Does not support random access. Supports sample compression."""
+
     def __init__(
         self,
         filename: str,
@@ -104,14 +118,137 @@ class MDSBulkShardReader:
         for i in range(self.samples):
             yield self.get_item(i)
 
-    def __enter__(self) -> "MDSBulkShardReader":
+    def __enter__(self) -> "MDSBulkReader":
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         self.fp.close()
 
+class MDSRAMDatasetReader(Dataset):
+    def __init__(
+        self,
+        dirnames: list[str],
+        split: Optional[str],
+    ) -> None:
+        self.readers = []
+        self.cumulative_lengths = [0]
+        for dirname in dirnames:
+            if split is not None:
+                dirname = os.path.join(dirname, split)
+            index = json.load(open(os.path.join(dirname, "index.json"), 'rt'))
+            for shard in index["shards"]:
+                basename = shard['raw_data']['basename'] if shard['zip_data'] is None else shard['zip_data']['basename']
+                filename = os.path.join(dirname, basename)
+                self.readers.append(MDSRAMReader(filename=filename, compression=shard['compression']))
+                self.cumulative_lengths.append(self.cumulative_lengths[-1] + shard['samples'])
 
-class MDSWriter:
+    def __len__(self) -> int:
+        return self.cumulative_lengths[-1]
+
+    def __iter__(self) -> Generator[dict[str, Any], None, None]:
+        for reader in self.readers:
+            for sample in reader:
+                    yield sample
+
+    def __getitem__(self, index):
+        if index < 0 or index >= len(self):
+            raise IndexError("Index out of range")
+        dataset_idx = bisect.bisect_right(self.cumulative_lengths, index) - 1
+        local_index = index - self.cumulative_lengths[dataset_idx]
+        return self.readers[dataset_idx][local_index]
+
+    def __enter__(self) -> "MDSRAMDatasetReader":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        for reader in self.readers:
+            reader.__exit__(exc_type, exc_value, traceback)
+
+class MDSRAMReader:
+    """Reader for MDS shards that reads samples fast with random access, among others by caching the index. Supports sample compression."""
+
+    def __init__(
+        self,
+        filename: str,
+        compression: Optional[str],
+        buf_size: int = 2**24,
+    ) -> None:
+        self.sample_compression = None
+        if compression is not None and compression.startswith("sample::"):
+            compression, self.sample_compression = None, compression.removeprefix("sample::")
+        self.uncompressed_filename = None
+        if compression is not None:
+            self.uncompressed_filename = filename.rsplit(".mds", 1)[0]+".mds"
+            size = os.stat(filename).st_size
+            num_blocks = (size+buf_size-1) // buf_size
+            with open_compression(filename, "rb", compression=compression) as f_in, open(self.uncompressed_filename, "wb") as f_out:
+                for _ in range(num_blocks):
+                    buf = f_in.read(buf_size)
+                    assert buf
+                    f_out.write(buf)
+                buf = f_in.read()
+                assert not buf
+            filename = self.uncompressed_filename
+        self.fp = open(filename, "rb")
+        self.samples = np.frombuffer(self.fp.read(4), np.uint32)[0]
+        self.index = np.frombuffer(self.fp.read((1+self.samples)*4), np.uint32)
+        info = json.loads(self.fp.read(self.index[0]-self.fp.tell()))
+        self.column_encodings = info["column_encodings"]
+        self.column_names = info["column_names"]
+        self.column_sizes = info["column_sizes"]
+        assert self.fp.tell() == self.index[0]
+
+    def decode_sample(self, data: bytes) -> dict[str, Any]:
+        sizes = []
+        idx = 0
+        for key, size in zip(self.column_names, self.column_sizes):
+            if size:
+                sizes.append(size)
+            else:
+                size, = np.frombuffer(data[idx:idx + 4], np.uint32)
+                sizes.append(size)
+                idx += 4
+        sample = {}
+        for key, encoding, size in zip(self.column_names, self.column_encodings, sizes):
+            value = data[idx:idx + size]
+            sample[key] = mds_decode(encoding, value)
+            idx += size
+        return sample
+
+    def get_sample_data(self, idx: int) -> bytes:
+        begin, end = self.index[idx:idx+2]
+        self.fp.seek(begin)
+        data = self.fp.read(end - begin)
+        return data
+
+    def get_item(self, idx: int) -> dict[str, Any]:
+        data = self.get_sample_data(idx)
+        if self.sample_compression is not None:
+            data = decompress(self.sample_compression, data)
+        return self.decode_sample(data)
+
+    def __len__(self) -> int:
+        return self.samples
+
+    def __getitem__(self, index):
+        if index < 0 or index >= len(self):
+            raise IndexError("Index out of range")
+        return self.get_item(index)
+
+    def __iter__(self) -> Generator[dict[str, Any], None, None]:
+        for i in range(self.samples):
+            yield self.get_item(i)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.fp.close()
+        if self.uncompressed_filename is not None:
+            os.remove(self.uncompressed_filename)
+
+class MDSSampleWriter:
+    """Writer for MDS format that works as a sample compression-aware replacement for the MDSWriter from python-streaming."""
 
     format = 'mds'
     extra_bytes_per_sample = 4
@@ -326,7 +463,8 @@ class MDSWriter:
     def __exit__(self, exc_type, exc, traceback):
         self.finish()
 
-class MDSReader(JointReader):
+class MDSSampleReader(JointReader):
+    """Reader for MDS format that works as a sample compression-aware replacement for the MDSReader from python-streaming."""
 
     def __init__(
         self,
@@ -445,4 +583,4 @@ class MDSReader(JointReader):
             data = decompress(self.sample_compression, data)
         return data
 
-_readers["mds"] = MDSReader
+_readers["mds"] = MDSSampleReader

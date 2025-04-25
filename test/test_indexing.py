@@ -1,6 +1,9 @@
 import filecmp
 from mldataforge.commands.index import index_identity, index_join, index_slice
 from mldataforge.commands.join import join_mds
+from mldataforge.indexing import shuffle_permutation
+from mldataforge.utils import save_mds
+import numpy as np
 import pytest
 
 @pytest.mark.parametrize("num_slices,per_slice", [
@@ -87,14 +90,34 @@ def test_shuffling(seed, index, out_file, in_file, tmp_dir, scale_factor):
     assert len(dircmp.right_only) == 0, f"Right only files: {dircmp.right_only}"
     assert len(dircmp.funny_files) == 0, f"Funny files: {dircmp.funny_files}"        
 
-@pytest.mark.parametrize("sort_key", [
-    pytest.param("def key(sample): return sample['id']", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
-    pytest.param("def key(sample): return len(sample['input_ids'])", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
+@pytest.mark.parametrize("sort_key,input_directory", [
+    pytest.param("def key(sample): return sample['id']", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
+    pytest.param("def key(sample): return len(sample['input_ids'])", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
+    ("def key(sample): return sample['id']", 100_000),
 ])
-def test_sorting(sort_key, tmp_dir):
+def test_sorting(sort_key, input_directory, tmp_dir):
+    if isinstance(input_directory, int):
+        def id_iterator(it):
+            for i in it:
+                yield {"id": np.uint64(i)}
+        indices = shuffle_permutation(input_directory, seed=42)
+        input_directory = f"test.{input_directory}.mds"
+        save_mds(
+            id_iterator(indices),
+            str(tmp_dir / input_directory),
+            compression=None,
+            compression_args={"processes": 64},
+            pigz=False,
+            buf_size=2**14,
+            shard_size=2**18,
+            size_hint=None,
+            overwrite=True,
+            yes=True,
+            trafo=None,
+        )
     join_mds(
-        output_dir=str(tmp_dir / f"test.sorted.{len(sort_key)}.mds"),
-        mds_directories=[str(tmp_dir / "test.tokenized.mds")],
+        output_dir=str(tmp_dir / f"{input_directory}.sorted.mds"),
+        mds_directories=[str(tmp_dir / input_directory)],
         compression=None,
         compression_args={"processes": 64},
         overwrite=True,
@@ -110,8 +133,8 @@ def test_sorting(sort_key, tmp_dir):
         sort_key=sort_key,
     )
     join_mds(
-        output_dir=str(tmp_dir / f"test.resorted.{len(sort_key)}.mds"),
-        mds_directories=[str(tmp_dir / f"test.sorted.{len(sort_key)}.mds")],
+        output_dir=str(tmp_dir / f"{input_directory}.resorted.mds"),
+        mds_directories=[str(tmp_dir / f"{input_directory}.sorted.mds")],
         compression=None,
         compression_args={"processes": 64},
         overwrite=True,
@@ -126,7 +149,7 @@ def test_sorting(sort_key, tmp_dir):
         index=None,
         sort_key=sort_key,
     )
-    dircmp = filecmp.dircmp(str(tmp_dir / f"test.sorted.{len(sort_key)}.mds"), str(tmp_dir / f"test.resorted.{len(sort_key)}.mds"))
+    dircmp = filecmp.dircmp(str(tmp_dir / f"{input_directory}.sorted.mds"), str(tmp_dir / f"{input_directory}.resorted.mds"))
     assert len(dircmp.diff_files) == 0, f"Different files: {dircmp.diff_files}"
     assert len(dircmp.left_only) == 0, f"Left only files: {dircmp.left_only}"
     assert len(dircmp.right_only) == 0, f"Right only files: {dircmp.right_only}"

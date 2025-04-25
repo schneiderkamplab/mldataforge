@@ -19,7 +19,7 @@ import yaml
 
 from .compression import determine_compression, open_compression, pigz_compress
 from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation, sort_permutation
-from .mds import MDSBulkReader, MDSWriter
+from .mds import MDSBulkDatasetReader, MDSRAMDatasetReader, MDSSampleWriter
 from .trafos import get_transformations
 
 __all__ = [
@@ -61,7 +61,6 @@ class ConcatDataset(Dataset):
     def __getitem__(self, index):
         if index < 0 or index >= len(self):
             raise IndexError("Index out of range")
-
         dataset_idx = bisect.bisect_right(self.cumulative_lengths, index) - 1
         local_index = index - self.cumulative_lengths[dataset_idx]
         return self.datasets[dataset_idx][local_index]
@@ -251,26 +250,27 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
         if bulk:
             raise click.BadArgumentUsage("Bulk reader does not support sorting by design.")
     elif bulk:
-        return MDSBulkReader(mds_directories, split=split)
-    dss = []
-    for mds_directory in mds_directories:
-        ds = StreamingDataset(
-            local=mds_directory,
-            remote=None,
-            split=split,
-            shuffle=False,
-            allow_unsafe_types=True,
-            batch_size=batch_size,
-            download_retry=1,
-            validate_hash=False,
-        )
-        dss.append(ds)
-    if len(dss) == 1:
-        ds = dss[0]
-    else:
-        ds = ConcatDataset(dss)
-        if CFG["echo"]:
-            click.echo(f"Concatenated {len(dss)} datasets")
+        return MDSBulkDatasetReader(mds_directories, split=split)
+    ds = MDSRAMDatasetReader(mds_directories, split=split)
+    # dss = []
+    # for mds_directory in mds_directories:
+    #     ds = StreamingDataset(
+    #         local=mds_directory,
+    #         remote=None,
+    #         split=split,
+    #         shuffle=False,
+    #         allow_unsafe_types=True,
+    #         batch_size=batch_size,
+    #         download_retry=1,
+    #         validate_hash=False,
+    #     )
+    #     dss.append(ds)
+    # if len(dss) == 1:
+    #     ds = dss[0]
+    # else:
+    #     ds = ConcatDataset(dss)
+    #     if CFG["echo"]:
+    #         click.echo(f"Concatenated {len(dss)} datasets")
     if shuffle is not None:
         indices = shuffle_permutation(len(ds), seed=abs(shuffle))
         if shuffle < 0:
@@ -347,7 +347,7 @@ def save_mds(it, output_dir, compression=None, compression_args={"processes": 64
             check_arguments(part_dir, overwrite, yes)
             files.append(part_dir)
             columns = {key: _infer_mds_encoding(value) for key, value in sample.items()}
-            writer = MDSWriter(out=part_dir, columns=columns, compression=compression, size_limit=shard_size)
+            writer = MDSSampleWriter(out=part_dir, columns=columns, compression=compression, size_limit=shard_size)
             offset = 0
         prev = writer.new_shard_size
         writer.write(sample)
