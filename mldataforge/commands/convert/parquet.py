@@ -4,7 +4,7 @@ from ...compression import *
 from ...options import *
 from ...utils import *
 
-__all__ = ["parquet_to_jsonl", "parquet_to_mds"]
+__all__ = ["parquet_to_jsonl", "parquet_to_mds", "parquet_to_msgpack"]
 
 @click.group()
 def parquet():
@@ -53,5 +53,25 @@ def parquet_to_mds(output_dir, parquet_files, compression, compression_args, ove
         buf_size=buf_size,
         pigz=use_pigz(compression, no_pigz=no_pigz),
         shard_size=shard_size,
+        trafo=trafo,
+    )
+
+@parquet.command()
+@click.argument("output_file", type=click.Path(exists=False), required=True)
+@click.argument("parquet_files", type=click.Path(exists=True), required=True, nargs=-1)
+@compression_option(MSGPACK_COMPRESSIONS)
+@compression_args_option()
+@overwrite_option()
+@yes_option()
+@trafo_option()
+def msgpack(**kwargs):
+    parquet_to_msgpack(**kwargs)
+def parquet_to_msgpack(output_file, parquet_files, compression, compression_args, overwrite, yes, trafo):
+    check_arguments(output_file, overwrite, yes, parquet_files)
+    save_msgpack(
+        load_parquet_files(parquet_files),
+        output_file,
+        compression=compression,
+        compression_args=compression_args,
         trafo=trafo,
     )

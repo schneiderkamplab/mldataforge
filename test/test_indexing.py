@@ -3,8 +3,6 @@ from mldataforge.commands.index import index_identity, index_join, index_slice
 from mldataforge.commands.join import join_mds
 import pytest
 
-@pytest.mark.dependency(depends=["conversion"])
-@pytest.mark.dependency(name="indexing")
 @pytest.mark.parametrize("num_slices,per_slice", [
     (1, 1),
     (1, 10),
@@ -14,7 +12,7 @@ import pytest
     (10, 100),
     (100, 1000),
     (100, 10000),
-    (100, 100000),
+    pytest.param(100, 100000, marks=pytest.mark.dependency(name="index_large", scope="session")),
 ])
 def test_indexing(num_slices, per_slice, tmp_dir):
     # Test identity indexing
@@ -55,12 +53,10 @@ def test_indexing(num_slices, per_slice, tmp_dir):
     assert (tmp_dir / "test.joined.index").exists()
     assert filecmp.cmp(str(tmp_dir / "test.joined.index"), str(tmp_dir / "test.identity.index"), shallow=False), "Joined index does not match the original index!"
 
-@pytest.mark.dependency(depends=["indexing"])
-@pytest.mark.dependency(name="shuffling")
 @pytest.mark.parametrize("seed,index,out_file,in_file", [
-    (42, None, "test.shuffled.mds", "test.jsonl.mds"),
-    (-42, None, "test.unshuffled.mds", "test.shuffled.mds"),
-    (None, "test.identity.index", "test.identity.mds", "test.jsonl.mds"),
+    pytest.param(42, None, "test.shuffled.mds", "test.jsonl.mds", marks=pytest.mark.dependency(name="shuffle_shuffled", dependency=["convert_jsonl_mds"], scope="session")),
+    pytest.param(-42, None, "test.unshuffled.mds", "test.shuffled.mds", marks=pytest.mark.dependency(dependency=["shuffle_shuffled"], scope="session")),
+    pytest.param(None, "test.identity.index", "test.identity.mds", "test.jsonl.mds", marks=pytest.mark.dependency(dependency=["convert_jsonl_mds", "index_large"], scope="session")),
 ])
 def test_shuffling(seed, index, out_file, in_file, tmp_dir, scale_factor):
     if index is not None:
@@ -91,11 +87,9 @@ def test_shuffling(seed, index, out_file, in_file, tmp_dir, scale_factor):
     assert len(dircmp.right_only) == 0, f"Right only files: {dircmp.right_only}"
     assert len(dircmp.funny_files) == 0, f"Funny files: {dircmp.funny_files}"        
 
-@pytest.mark.dependency(depends=["trafos"])
-@pytest.mark.dependency(name="sorting")
 @pytest.mark.parametrize("sort_key", [
-    "def key(sample): return sample['id']",
-    "def key(sample): return len(sample['input_ids'])",
+    pytest.param("def key(sample): return sample['id']", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
+    pytest.param("def key(sample): return len(sample['input_ids'])", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
 ])
 def test_sorting(sort_key, tmp_dir):
     join_mds(

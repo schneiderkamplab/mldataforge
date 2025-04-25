@@ -2,6 +2,7 @@ import click
 
 from .jsonl import jsonl
 from .mds import mds
+from .msgpack import msgpack
 from .parquet import parquet
 
 __all__ = ["convert"]
@@ -12,4 +13,5 @@ def convert():
 
 convert.add_command(jsonl)
 convert.add_command(mds)
+convert.add_command(msgpack)
 convert.add_command(parquet)

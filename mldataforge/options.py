@@ -1,6 +1,6 @@
 import click
 
-from .compression import JSONL_COMPRESSIONS, MDS_COMPRESSIONS, PARQUET_COMPRESSIONS
+from .compression import JSONL_COMPRESSIONS, MDS_COMPRESSIONS, MSGPACK_COMPRESSIONS, PARQUET_COMPRESSIONS
 
 __all__ = [
     "batch_size_option",

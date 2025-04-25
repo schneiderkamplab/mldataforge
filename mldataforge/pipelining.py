@@ -2,8 +2,8 @@ import click
 from pathlib import Path
 import itertools
 
-from .indexing import IndexedDatasetView, shuffle_permutation, sort_permutation
-from .utils import ConcatDataset, load_index, load_jsonl_files, load_mds_directories, load_parquet_files, save_jsonl, save_mds, save_parquet
+from .indexing import *
+from .utils import *
 
 def run_pipeline(cfg, working_dir="."):
     named_iterators = {}
@@ -48,7 +48,13 @@ def _infer_format(source, item, exists):
         return "mds"
     if (not exists or item.is_file()) and item.suffix.lower() == ".parquet":
         return "parquet"
-    if (not exists or item.is_file()) and ".jsonl" in (suffix.lower() for suffix in item.suffixes):
+    if (not exists or item.is_file()) and item.suffix.lower() == ".msgpack":
+        return "msgpack"
+    if (not exists or item.is_file()) and item.suffix.lower() == ".jsonl":
+        return "jsonl"
+    if (not exists or item.is_file()) and len(item.suffixes) > 1 and item.suffixes[-2].lower() == ".msgpack":
+        return "msgpack"
+    if (not exists or item.is_file()) and len(item.suffixes) > 1 and item.suffixes[-2].lower() == ".jsonl":
         return "jsonl"
     if exists:
         raise click.BadArgumentUsage(f"Cannot resolve item '{item}' from source '{source}'")
@@ -108,6 +114,8 @@ def load_sources(defaults, sources, named_iterators):
                 bulk=source.get("bulk", defaults.get("bulk", True)),
             )
             iterators.append(ds)
+        elif fmt == "msgpack":
+            iterators.append(load_msgpack_files([path]))
         elif fmt == "parquet":
             iterators.append(load_parquet_files([path]))
         else:
@@ -117,20 +125,22 @@ def load_sources(defaults, sources, named_iterators):
     return itertools.chain(*iterators)
 
 def _resolve_sink(defaults, sink):
+    working_dir = Path(defaults["working_dir"])
     if isinstance(sink, dict):
         if "name" in sink:
             sink["fmt"] = "named"
             return sink
         if "path" in sink:
             if not "fmt" in sink:
-                sink["fmt"] = _infer_format(sink, sink["path"], exists=False)
+                sink["fmt"] = _infer_format(sink, working_dir / sink["path"], exists=False)
+            sink["path"] = str(working_dir / sink["path"])
             return sink
         raise click.BadArgumentUsage(f"Cannot resolve sink '{sink}'")
     if isinstance(sink, str):
-        fmt = _infer_format(sink, sink, exists=False)
+        fmt = _infer_format(sink, working_dir / sink, exists=False)
         if fmt == "named":
             return {"fmt": fmt, "name": sink}
-        return {"fmt": fmt, "path": str(Path(defaults["working_dir"]) / sink)}
+        return {"fmt": fmt, "path": str(working_dir / sink)}
     raise click.BadArgumentUsage(f"Cannot resolve sink '{sink}'")
 
 def save_sink(defaults, sink, ds, trafo, named_iterators):
@@ -138,40 +148,13 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
         for item in ds:
             pass
         return
-    if isinstance(sink, dict):
-        if "fmt" in sink:
-            fmt = sink["fmt"]
-            if "path" in sink:
-                path = get_path(defaults, sink["path"])
-            if "name" in sink:
-                name = sink["name"]
-        elif "name" in sink:
-            fmt = "named"
-            name = sink["name"]
-        elif "path" in sink:
-            path = get_path(defaults, sink["path"])
-            if path.suffix.lower() == ".mds":
-                fmt = "mds"
-            elif path.suffix.lower() == ".parquet":
-                fmt = "parquet"
-            elif ".jsonl" in (suffix.lower() for suffix in path.suffixes):
-                fmt = "jsonl"
-    else:
-        path = get_path(defaults, sink)
-        if path.suffix.lower() == ".mds":
-            fmt = "mds"
-        elif path.suffix.lower() == ".parquet":
-            fmt = "parquet"
-        elif ".jsonl" in (suffix.lower() for suffix in path.suffixes):
-            fmt = "jsonl"
-        else:
-            fmt = "named"
-            name = sink
-        sink = {}
+    sink = _resolve_sink(defaults, sink)
+    fmt = sink["fmt"]
     if fmt == "named":
+        name = sink["name"]
         named_iterators[name] = ds
     elif fmt == "jsonl":
-        path = str(path)
+        path = sink["path"]
         save_jsonl(
             ds,
             path,
@@ -183,7 +166,7 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
             trafo=trafo,
         )
     elif fmt == "mds":
-        path = str(path)
+        path = sink["path"]
         save_mds(
             ds,
             path,
@@ -197,8 +180,20 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
             yes=sink.get("yes", defaults.get("yes", False)),
             trafo=trafo,
         )
+    elif fmt == "msgpack":
+        path = sink["path"]
+        save_msgpack(
+            ds,
+            path,
+            compression=sink.get("compression", defaults.get("compression", "infer")),
+            compression_args=sink.get("compression_args", defaults.get("compression_args", {"processes": 64})),
+            size_hint=sink.get("size_hint", defaults.get("size_hint", None)),
+            overwrite=sink.get("overwrite", defaults.get("overwrite", False)),
+            yes=sink.get("yes", defaults.get("yes", False)),
+            trafo=trafo,
+        )
     elif fmt == "parquet":
-        path = str(path)
+        path = sink["path"]
         save_parquet(
             ds,
             path,
@@ -212,6 +207,3 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
         )
     else:
         raise click.BadArgumentUsage(f"Unknown sink format '{fmt}'")
-
-def get_path(defaults, path):
-    return Path(defaults["working_dir"]) / path

@@ -6,6 +6,7 @@ import PIL.PngImagePlugin
 import click
 from datasets import Dataset, load_dataset
 import json
+import msgpack
 import numpy as np
 from pathlib import Path
 import pyarrow as pa
@@ -32,11 +33,13 @@ __all__ = [
     "load_index",
     "load_jsonl_files",
     "load_mds_directories",
+    "load_msgpack_files",
     "load_parquet_files",
     "load_pipeline_config",
     "save_index",
     "save_jsonl",
     "save_mds",
+    "save_msgpack",
     "save_parquet",
 ]
 
@@ -287,6 +290,10 @@ def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True
         ds = IndexedDatasetView(ds, indices)
     return ds
 
+def load_msgpack_files(msgpack_files):
+    compressions = [determine_compression("msgpack", msgpack_file) for msgpack_file in msgpack_files]
+    return _streaming_msgpack(msgpack_files, compressions)
+
 def load_parquet_files(parquet_files):
     ds = load_dataset("parquet", data_files=parquet_files, split="train")
     return ds
@@ -373,6 +380,25 @@ def save_mds(it, output_dir, compression=None, compression_args={"processes": 64
             if CFG["echo"]:
                 click.echo(f"Compressed {index_path} with pigz")
 
+def save_msgpack(iterable, output_file, compression=None, compression_args={"processes": 64}, size_hint=None, overwrite=True, yes=True, trafo=None):
+    f = None
+    part = 0
+    trafo = get_transformations(trafo)
+    for item in tqdm(trafo(iterable), desc="Writing to JSONL", unit="sample", disable=not CFG["progress"]):
+        if f is None:
+            part_file = output_file.format(part=part)
+            check_arguments(part_file, overwrite, yes)
+            f = open_compression(part_file, mode="wb", compression=compression, compression_args=compression_args)
+        item = _sort_nested(item)
+        packed = msgpack.packb(item, use_bin_type=True)
+        f.write(packed)
+        if size_hint is not None and f.tell() >= size_hint:
+            f.close()
+            part += 1
+            f = None
+    if f is not None:
+        f.close()
+
 def save_parquet(it, output_file, compression=None, compression_args={"processes": 64}, batch_size=2**16, size_hint=None, overwrite=True, yes=True, trafo=None):
     compression = determine_compression("parquet", output_file, compression)
     writer = None
@@ -407,3 +433,10 @@ def _streaming_jsonl(jsonl_files, compressions):
     for jsonl_file, compression in tqdm(zip(jsonl_files, compressions), desc="Loading JSONL files", unit="file", disable=not CFG["progress"]):
         for line in open_compression(jsonl_file, mode="rt", compression=compression):
             yield json.loads(line)
+
+def _streaming_msgpack(msgpack_files, compressions):
+    for msgpack_file, compression in tqdm(zip(msgpack_files, compressions), desc="Loading MessagePack files", unit="file", disable=not CFG["progress"]):
+        with open_compression(msgpack_file, mode="rb", compression=compression) as f:
+            unpacker = msgpack.Unpacker(f, raw=False)
+            for item in unpacker:
+                yield item

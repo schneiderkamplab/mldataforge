@@ -1,11 +1,50 @@
+from collections import defaultdict
 from datasets import load_dataset
 from huggingface_hub import hf_hub_download
 import math
+from mldataforge import utils
 from pathlib import Path
 import pytest
 import shutil
 
-from mldataforge import utils
+def pytest_collection_modifyitems(config, items):
+    name_to_node = {}
+    dependency_graph = defaultdict(set)
+    for item in items:
+        name = None
+        depends_on = []
+        for mark in item.iter_markers(name="dependency"):
+            name = mark.kwargs.get("name")
+            depends = mark.kwargs.get("depends", [])
+            scope = mark.kwargs.get("scope", "module")
+            if scope == "session":
+                depends_on.extend(depends)
+        if name:
+            name_to_node[name] = item
+        if depends_on:
+            for dep in depends_on:
+                dependency_graph[item].add(dep)
+    for item, deps in list(dependency_graph.items()):
+        resolved_deps = set()
+        for dep in deps:
+            dep_item = name_to_node.get(dep)
+            if dep_item:
+                resolved_deps.add(dep_item)
+        dependency_graph[item] = resolved_deps
+    visited = set()
+    ordered = []
+    def visit(item):
+        if item in visited:
+            return
+        visited.add(item)
+        for dep_item in dependency_graph.get(item, []):
+            visit(dep_item)
+        ordered.append(item)
+    for item in items:
+        visit(item)
+    items[:] = ordered
+import pytest
+from functools import wraps
 
 def pytest_addoption(parser):
     parser.addoption("--samples", type=int, default=None, help="Number of samples to test on (default: all)")

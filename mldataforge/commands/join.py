@@ -63,6 +63,26 @@ def join_mds(output_dir, mds_directories, compression, compression_args, overwri
 
 @join.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)
+@click.argument("msgpack_files", type=click.Path(exists=True), required=True, nargs=-1)
+@compression_option(MSGPACK_COMPRESSIONS)
+@compression_args_option()
+@overwrite_option()
+@yes_option()
+@trafo_option()
+def msgpack(**kwargs):
+    join_msgpack(**kwargs)
+def join_msgpack(output_file, msgpack_files, compression, compression_args, overwrite, yes, trafo):
+    check_arguments(output_file, overwrite, yes, msgpack_files)
+    save_msgpack(
+        load_msgpack_files(msgpack_files),
+        output_file,
+        compression=compression,
+        compression_args=compression_args,
+        trafo=trafo,
+    )
+
+@join.command()
+@click.argument("output_file", type=click.Path(exists=False), required=True)
 @click.argument("parquet_files", type=click.Path(exists=True), required=True, nargs=-1)
 @compression_option(PARQUET_COMPRESSIONS)
 @compression_args_option()

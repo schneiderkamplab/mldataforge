@@ -24,6 +24,7 @@ dependencies = [
     'isal',
     'lz4',
     'mosaicml-streaming',
+    'msgpack',
     'python-snappy',
     'zstandard'
 ]

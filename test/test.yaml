@@ -14,7 +14,8 @@ steps:
     sink:
       name: shuffled
   - sources:
-    - test.jsonl.p*t
+    - test.jsonl.parquet
+    - t*t.jsonl.msgpack
     sink:
       straight
   - sources:

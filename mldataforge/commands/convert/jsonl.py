@@ -1,5 +1,4 @@
 import click
-from datasets import load_dataset
 
 from ...compression import *
 from ...options import *
@@ -34,6 +33,26 @@ def jsonl_to_mds(output_dir, jsonl_files, compression, compression_args, overwri
         buf_size=buf_size,
         pigz=use_pigz(compression, no_pigz),
         shard_size=shard_size,
+        trafo=trafo,
+    )
+
+@jsonl.command()
+@click.argument("output_file", type=click.Path(exists=False), required=True)
+@click.argument("jsonl_files", type=click.Path(exists=True), required=True, nargs=-1)
+@compression_option(MSGPACK_COMPRESSIONS)
+@compression_args_option()
+@overwrite_option()
+@yes_option()
+@trafo_option()
+def msgpack(**kwargs):
+    jsonl_to_msgpack(**kwargs)
+def jsonl_to_msgpack(output_file, jsonl_files, compression, compression_args, overwrite, yes, trafo):
+    check_arguments(output_file, overwrite, yes, jsonl_files)
+    save_msgpack(
+        load_jsonl_files(jsonl_files),
+        output_file,
+        compression=compression,
+        compression_args=compression_args,
         trafo=trafo,
     )
 

@@ -70,6 +70,30 @@ def split_mds(mds_directories, prefix, output_dir, size_hint, compression, compr
     )
 
 @split.command()
+@click.argument("msgpack_files", type=click.Path(exists=True), required=True, nargs=-1)
+@prefix_option()
+@output_dir_option()
+@size_hint_option()
+@compression_option(JSONL_COMPRESSIONS)
+@compression_args_option()
+@overwrite_option()
+@yes_option()
+@trafo_option()
+def msgpack(*args, **kwargs):
+    split_msgpack(*args, **kwargs)
+def split_msgpack(msgpack_files, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, trafo):
+    save_jsonl(
+        load_msgpack_files(msgpack_files),
+        output_file=f"{output_dir}/{prefix}{{part:04d}}.jsonl{extension_compression(compression, msgpack_files[0])}",
+        compression=compression,
+        compression_args=compression_args,
+        size_hint=size_hint,
+        overwrite=overwrite,
+        yes=yes,
+        trafo=trafo,
+    )
+
+@split.command()
 @click.argument("parquet_files", type=click.Path(exists=True), required=True, nargs=-1)
 @prefix_option()
 @output_dir_option()

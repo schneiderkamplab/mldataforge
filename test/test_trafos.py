@@ -3,23 +3,21 @@ from mldataforge.commands.join import join_jsonl, join_mds, join_parquet
 from pathlib import Path
 import pytest
 
-@pytest.mark.dependency(depends=["conversion"])
-@pytest.mark.dependency(name="trafos")
 @pytest.mark.parametrize("fmt,trafo,out_file,in_file", [
     ("jsonl", ["from mldataforge.trafos import identity as process"], "test.identity.jsonl", "test.jsonl"),
-    ("jsonl", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.jsonl", "test.jsonl"),
-    ("jsonl", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.jsonl", "test.flattened.jsonl"),
-    ("mds", ["from mldataforge.trafos import identity as process"], "test.identity.mds", "test.jsonl.mds"),
-    ("mds", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.mds", "test.jsonl.mds"),
-    ("mds", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.mds", "test.flattened.mds"),
-    ("parquet", ["from mldataforge.trafos import identity as process"], "test.identity.parquet", "test.jsonl.parquet"),
-    ("parquet", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.parquet", "test.jsonl.parquet"),
-    ("parquet", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.parquet", "test.flattened.parquet"),
+    pytest.param("jsonl", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.jsonl", "test.jsonl", marks=pytest.mark.dependency(name="trafos_flatten_jsonl", scope="session")),
+    pytest.param("jsonl", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.jsonl", "test.flattened.jsonl", marks=pytest.mark.dependency(depends=["trafos_flatten_jsonl"], scope="session")),
+    pytest.param("mds", ["from mldataforge.trafos import identity as process"], "test.identity.mds", "test.jsonl.mds", marks=pytest.mark.dependency(depends=["convert_jsonl_mds"], scope="session")),
+    pytest.param("mds", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.mds", "test.jsonl.mds", marks=pytest.mark.dependency(name="trafos_flatten_mds", depends=["convert_jsonl_mds"], scope="session")),
+    pytest.param("mds", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.mds", "test.flattened.mds", marks=pytest.mark.dependency(depends=["trafos_flatten_mds"], scope="session")),
+    pytest.param("parquet", ["from mldataforge.trafos import identity as process"], "test.identity.parquet", "test.jsonl.parquet", marks=pytest.mark.dependency(depends=["convert_jsonl_parquet"], scope="session")),
+    pytest.param("parquet", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.parquet", "test.jsonl.parquet", marks=pytest.mark.dependency(name="trafos_flatten_parquet", depends=["convert_jsonl_parquet"], scope="session")),
+    pytest.param("parquet", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.parquet", "test.flattened.parquet", marks=pytest.mark.dependency(depends=["trafos_flatten_parquet"], scope="session")),
     ("jsonl", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.jsonl", "test.jsonl"),
-    ("mds", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.mds", "test.jsonl.mds"),
-    ("parquet", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.parquet", "test.jsonl.parquet"),
+    pytest.param("mds", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.mds", "test.jsonl.mds", marks=pytest.mark.dependency(name="trafos_test_tokenized_mds", depends=["convert_jsonl_mds"], scope="session")),
+    pytest.param("parquet", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.parquet", "test.jsonl.parquet", marks=pytest.mark.dependency(depends=["convert_jsonl_parquet"], scope="session")),
 ])
-def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor):
+def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor, request):
     if fmt == "jsonl":
         join_jsonl(
             output_file=str(tmp_dir / out_file),

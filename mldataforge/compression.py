@@ -16,6 +16,7 @@ from .snappy import snappy_open
 __all__ = [
     "JSONL_COMPRESSIONS",
     "MDS_COMPRESSIONS",
+    "MSGPACK_COMPRESSIONS",
     "PARQUET_COMPRESSIONS",
     "determine_compression",
     "extension_compression",
@@ -34,6 +35,10 @@ MDS_COMPRESSIONS = dict(
     default=None,
     choices=["none", "brotli", "bz2", "gzip", "pigz", "snappy", "zstd", "sample::brotli", "sample::bz2", "sample::gzip", "sample::snappy", "sample::zstd"],
 )
+MSGPACK_COMPRESSIONS = dict(
+    default="infer",
+    choices=["infer", "none", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
+)
 PARQUET_COMPRESSIONS = dict(
     default="snappy",
     choices=["snappy", "brotli", "gzip", "lz4", "zstd"],
@@ -42,7 +47,7 @@ PARQUET_COMPRESSIONS = dict(
 def determine_compression(fmt, file_path, compression="infer", no_pigz=False):
     if compression == "none":
         return None
-    if fmt == "jsonl":
+    if fmt in ("jsonl", "msgpack"):
         if compression == "infer":
             compression = infer_compression(file_path)
         if compression == "brotli":
