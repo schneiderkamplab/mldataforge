@@ -1,6 +1,7 @@
 import click
 
 from .compression import JSONL_COMPRESSIONS, MDS_COMPRESSIONS, MSGPACK_COMPRESSIONS, PARQUET_COMPRESSIONS
+from .mds import MDS_READERS
 
 __all__ = [
     "batch_size_option",
@@ -9,13 +10,13 @@ __all__ = [
     "compression_option",
     "every_option",
     "index_option",
-    "no_bulk_option",
     "no_pigz_option",
     "number_option",
     "offset_option",
     "output_dir_option",
     "overwrite_option",
     "prefix_option",
+    "reader_option",
     "shard_size_option",
     "shuffle_option",
     "size_hint_option",
@@ -88,16 +89,6 @@ def index_option():
         help="Index file for loading the dataset.",
     )
 
-def no_bulk_option():
-    """
-    Option for specifying whether to use a custom space and time-efficient bulk reader (only gzip and no compression).
-    """
-    return click.option(
-        "--no-bulk",
-        is_flag=True,
-        help="Use a custom space and time-efficient bulk reader (only gzip and no compression).",
-    )
-
 def no_pigz_option():
     """
     Option for specifying whether to use pigz compression.
@@ -157,6 +148,17 @@ def prefix_option(default="part-"):
         "--prefix",
         default=default,
         help=f"Prefix for output files (default: {default}).",
+    )
+
+def reader_option(default=MDS_READERS["default"]):
+    """
+    Option for specifying the MDS reader type.
+    """
+    return click.option(
+        "--reader",
+        default=default,
+        type=click.Choice(MDS_READERS["choices"], case_sensitive=False),
+        help=f"Reader type (default: {default}).",
     )
 
 def shard_size_option(default=2**26):

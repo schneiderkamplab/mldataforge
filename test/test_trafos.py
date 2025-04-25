@@ -40,7 +40,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor, request):
             yes=True,
             batch_size=2**10*scale_factor,
             buf_size=2**14*scale_factor,
-            no_bulk=False,
+            reader="ram",
             shard_size=2**26,
             no_pigz=True,
             trafo=trafo,

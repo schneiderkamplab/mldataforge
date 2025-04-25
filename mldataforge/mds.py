@@ -25,6 +25,11 @@ __all__ = [
     "MDSSampleWriter",
 ]
 
+MDS_READERS = dict(
+    default="ram",
+    choices=["streaming", "bulk", "ram"],
+)
+
 class MDSBulkDatasetReader:
     """Reader for MDS format that reads samples fast in linear order. Does not support random access. Supports sample compression."""
 

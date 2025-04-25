@@ -111,7 +111,7 @@ def load_sources(defaults, sources, named_iterators):
                 [path],
                 split=source.get("split", '.'),
                 batch_size=source.get("batch_size", defaults.get("batch_size", 2**16)),
-                bulk=source.get("bulk", defaults.get("bulk", True)),
+                reader=source.get("reader", defaults.get("reader", "ram")),
             )
             iterators.append(ds)
         elif fmt == "msgpack":

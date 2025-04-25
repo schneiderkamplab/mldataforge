@@ -86,20 +86,20 @@ def index_reverse(output_file, input_file, overwrite, yes, number, offset, every
 @yes_option()
 @split_option()
 @batch_size_option()
-@no_bulk_option()
+@reader_option()
 @number_option()
 @offset_option()
 @every_option()
 @sort_key_option()
 def sort(**kwargs):
     index_sort(**kwargs)
-def index_sort(output_file, mds_directories, overwrite, yes, split, batch_size, no_bulk, number, offset, every, sort_key):
+def index_sort(output_file, mds_directories, overwrite, yes, split, batch_size, reader, number, offset, every, sort_key):
     check_arguments(output_file, overwrite, yes)
     ds = load_mds_directories(
         mds_directories,
         split=split,
         batch_size=batch_size,
-        bulk=not no_bulk,
+        reader=reader,
     )
     indices = sort_permutation(ds, sort_key)
     indices = process_indices(indices, every=every, offset=offset, number=number)

@@ -19,7 +19,7 @@ import yaml
 
 from .compression import determine_compression, open_compression, pigz_compress
 from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation, sort_permutation
-from .mds import MDSBulkDatasetReader, MDSRAMDatasetReader, MDSSampleWriter
+from .mds import MDS_READERS, MDSBulkDatasetReader, MDSRAMDatasetReader, MDSSampleWriter
 from .trafos import get_transformations
 
 __all__ = [
@@ -233,44 +233,48 @@ def load_jsonl_files(jsonl_files):
         return _streaming_jsonl(jsonl_files, compressions)
     return load_dataset("json", data_files=jsonl_files, split="train")
 
-def load_mds_directories(mds_directories, split='.', batch_size=2**16, bulk=True, shuffle=None, index=None, sort_key=None):
+def load_mds_directories(mds_directories, split='.', batch_size=2**16, reader="ram", shuffle=None, index=None, sort_key=None):
     if shuffle is not None:
-        if bulk:
+        if reader == "bulk":
             raise click.BadArgumentUsage("Bulk reader does not support shuffling by design.")
         if index is not None:
             raise click.BadArgumentUsage("Cannot use index and shuffling simultaneously.")
         if sort_key is not None:
             raise click.BadArgumentUsage("Cannot use sort key and shuffling simultaneously.")
-    elif index is not None:
-        if bulk:
+    if index is not None:
+        if reader == "bulk":
             raise click.BadArgumentUsage("Bulk reader does not support indexing by design.")
         if sort_key is not None:
             raise click.BadArgumentUsage("Cannot use sort key and indexing simultaneously.")
-    elif sort_key is not None:
-        if bulk:
+    if sort_key is not None:
+        if reader == "bulk":
             raise click.BadArgumentUsage("Bulk reader does not support sorting by design.")
-    elif bulk:
+    if reader == "bulk":
         return MDSBulkDatasetReader(mds_directories, split=split)
-    ds = MDSRAMDatasetReader(mds_directories, split=split)
-    # dss = []
-    # for mds_directory in mds_directories:
-    #     ds = StreamingDataset(
-    #         local=mds_directory,
-    #         remote=None,
-    #         split=split,
-    #         shuffle=False,
-    #         allow_unsafe_types=True,
-    #         batch_size=batch_size,
-    #         download_retry=1,
-    #         validate_hash=False,
-    #     )
-    #     dss.append(ds)
-    # if len(dss) == 1:
-    #     ds = dss[0]
-    # else:
-    #     ds = ConcatDataset(dss)
-    #     if CFG["echo"]:
-    #         click.echo(f"Concatenated {len(dss)} datasets")
+    if reader == "ram":
+        ds = MDSRAMDatasetReader(mds_directories, split=split)
+    elif reader == "streaming":
+        dss = []
+        for mds_directory in mds_directories:
+            ds = StreamingDataset(
+                local=mds_directory,
+                remote=None,
+                split=split,
+                shuffle=False,
+                allow_unsafe_types=True,
+                batch_size=batch_size,
+                download_retry=1,
+                validate_hash=False,
+            )
+            dss.append(ds)
+        if len(dss) == 1:
+            ds = dss[0]
+        else:
+            ds = ConcatDataset(dss)
+            if CFG["echo"]:
+                click.echo(f"Concatenated {len(dss)} datasets")
+    else:
+        raise click.BadArgumentUsage(f"Invalid reader: {reader}. Supported readers are {MDS_READERS['choices']}.")
     if shuffle is not None:
         indices = shuffle_permutation(len(ds), seed=abs(shuffle))
         if shuffle < 0:
