@@ -1,11 +1,21 @@
 import filecmp
-from mldataforge.commands.join import join_jsonl, join_mds, join_msgpack, join_parquet
+from mldataforge.commands.join import join_jinx, join_jsonl, join_mds, join_msgpack, join_parquet
 from mldataforge.commands.convert.mds import mds_to_jsonl
 from mldataforge.commands.convert.msgpack import msgpack_to_jsonl
 from mldataforge.commands.convert.parquet import parquet_to_jsonl
 import pytest
 
 @pytest.mark.parametrize("fmt,compression,out_file,in_file", [
+    pytest.param("jinx", None, "test.None.jinx", "test.jsonl.jinx", marks=pytest.mark.dependency(depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", "none", "test.none.jinx", "test.jsonl.jinx", marks=pytest.mark.dependency(depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", "brotli", "test.br.jinx", "test.jsonl.jinx", marks=pytest.mark.dependency(name="compress_jinx_br", depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", "bz2", "test.bz2.jinx", "test.jsonl.jinx", marks=pytest.mark.dependency(name="compress_jinx_bz2", depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", "gzip", "test.gzip.jinx", "test.jsonl.jinx", marks=pytest.mark.dependency(name="compress_jinx_gzip", depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", "lz4", "test.jinx.lz4", "test.jsonl.jinx", marks=pytest.mark.dependency(name="compress_jinx_lz4", depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", "lzma", "test.jinx.lzma", "test.jsonl.jinx", marks=pytest.mark.dependency(name="compress_jinx_lzma", depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", "snappy", "test.jinx.snappy", "test.jsonl.jinx", marks=pytest.mark.dependency(name="compress_jinx_snappy", depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", "xz", "test.jinx.xz", "test.jsonl.jinx", marks=pytest.mark.dependency(name="compress_jinx_xz", depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", "zstd", "test.jinx.zst", "test.jsonl.jinx", marks=pytest.mark.dependency(name="compress_jinx_zstd", depends=["convert_jsonl_jinx"], scope="session")),
     ("jsonl", None, "test.None.jsonl", "test.jsonl"),
     ("jsonl", "none", "test.none.jsonl", "test.jsonl"),
     pytest.param("jsonl", "brotli", "test.jsonl.br", "test.jsonl", marks=pytest.mark.dependency(name="compress_jsonl_br", scope="session")),
@@ -52,7 +62,17 @@ import pytest
 def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor, compressions):
     if compressions is not None and compression not in compressions:
         pytest.skip(f"Compression {compression} is not in the list of compressions to test: {compressions}")
-    if fmt == "jsonl":
+    if fmt == "jinx":
+        join_jinx(
+            output_file=str(tmp_dir / out_file),
+            jinx_paths=[str(tmp_dir / in_file)],
+            compression=compression,
+            compression_args={"processes": 64, "quality": 1, "compression_level": 1},
+            overwrite=True,
+            yes=True,
+            trafo=None,
+        )
+    elif fmt == "jsonl":
         join_jsonl(
             output_file=str(tmp_dir / out_file),
             jsonl_files=[str(tmp_dir / in_file)],
@@ -104,6 +124,14 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor,
     assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"
 
 @pytest.mark.parametrize("fmt,out_file,in_file", [
+    pytest.param("jinx", "test.br.jinx.jsonl", "test.jinx.br", marks=pytest.mark.dependency(depends=["compress_jinx_br"], scope="session")),
+    pytest.param("jinx", "test.bz2.jinx.jsonl", "test.jinx.bz2", marks=pytest.mark.dependency(depends=["compress_jinx_bz2"], scope="session")),
+    pytest.param("jinx", "test.gzip.jinx.jsonl", "test.jinx.gz", marks=pytest.mark.dependency(depends=["compress_jinx_gzip"], scope="session")),
+    pytest.param("jinx", "test.jinx.lz4.jsonl", "test.jinx.lz4", marks=pytest.mark.dependency(depends=["compress_jinx_lz4"], scope="session")),
+    pytest.param("jinx", "test.jinx.lzma.jsonl", "test.jinx.lzma", marks=pytest.mark.dependency(depends=["compress_jinx_lzma"], scope="session")),
+    pytest.param("jinx", "test.jinx.snappy.jsonl", "test.jinx.snappy", marks=pytest.mark.dependency(depends=["compress_jinx_snappy"], scope="session")),
+    pytest.param("jinx", "test.jinx.xz.jsonl", "test.jinx.xz", marks=pytest.mark.dependency(depends=["compress_jinx_xz"], scope="session")),
+    pytest.param("jinx", "test.jinx.zst.jsonl", "test.jinx.zst", marks=pytest.mark.dependency(depends=["compress_jinx_zstd"], scope="session")),
     pytest.param("jsonl", "test.jsonl.br.jsonl", "test.jsonl.br", marks=pytest.mark.dependency(depends=["compress_jsonl_br"], scope="session")),
     pytest.param("jsonl", "test.jsonl.bz2.jsonl", "test.jsonl.bz2", marks=pytest.mark.dependency(depends=["compress_jsonl_bz2"], scope="session")),
     pytest.param("jsonl", "test.jsonl.gz.jsonl", "test.jsonl.gz", marks=pytest.mark.dependency(depends=["compress_jsonl_gzip"], scope="session")),

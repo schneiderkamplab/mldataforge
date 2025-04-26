@@ -11,6 +11,30 @@ def split():
     pass
 
 @split.command()
+@click.argument("jinx_paths", type=click.Path(exists=True), required=True, nargs=-1)
+@prefix_option()
+@output_dir_option()
+@size_hint_option()
+@compression_option(JINX_COMPRESSIONS)
+@compression_args_option()
+@overwrite_option()
+@yes_option()
+@trafo_option()
+def jinx(*args, **kwargs):
+    split_jinx(*args, **kwargs)
+def split_jinx(jinx_paths, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, trafo):
+    save_jinx(
+        load_jinx_paths(jinx_paths),
+        output_file=f"{output_dir}/{prefix}{{part:04d}}.jinx",
+        compression=compression,
+        compression_args=compression_args,
+        size_hint=size_hint,
+        overwrite=overwrite,
+        yes=yes,
+        trafo=trafo,
+    )
+
+@split.command()
 @click.argument("jsonl_files", type=click.Path(exists=True), required=True, nargs=-1)
 @prefix_option()
 @output_dir_option()

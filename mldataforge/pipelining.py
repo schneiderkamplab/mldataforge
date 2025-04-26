@@ -50,6 +50,8 @@ def _infer_format(source, item, exists):
         return "parquet"
     if (not exists or item.is_file()) and item.suffix.lower() == ".msgpack":
         return "msgpack"
+    if (not exists or item.is_file()) and item.suffix.lower() == ".jinx":
+        return "jsonl"
     if (not exists or item.is_file()) and item.suffix.lower() == ".jsonl":
         return "jsonl"
     if (not exists or item.is_file()) and len(item.suffixes) > 1 and item.suffixes[-2].lower() == ".msgpack":
@@ -104,7 +106,9 @@ def load_sources(defaults, sources, named_iterators):
                 continue
             raise click.BadArgumentUsage(f"Named iterator '{name}' not found")
         path = str(source["path"])
-        if fmt == "jsonl":
+        if fmt == "jinx":
+            iterators.append(load_jinx_paths([path]))
+        elif fmt == "jsonl":
             iterators.append(load_jsonl_files([path]))
         elif fmt == "mds":
             ds = load_mds_directories(
@@ -153,6 +157,18 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
     if fmt == "named":
         name = sink["name"]
         named_iterators[name] = ds
+    elif fmt == "jinx":
+        path = sink["path"]
+        save_jinx(
+            ds,
+            path,
+            compression=sink.get("compression", defaults.get("compression", "snappy")),
+            compression_args=sink.get("compression_args", defaults.get("compression_args", {"processes": 64})),
+            size_hint=sink.get("size_hint", defaults.get("size_hint", None)),
+            overwrite=sink.get("overwrite", defaults.get("overwrite", False)),
+            yes=sink.get("yes", defaults.get("yes", False)),
+            trafo=trafo,
+        )
     elif fmt == "jsonl":
         path = sink["path"]
         save_jsonl(

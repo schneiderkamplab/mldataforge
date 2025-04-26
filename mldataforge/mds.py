@@ -14,7 +14,7 @@ from streaming.base.hashing import get_hash, is_hash
 from streaming.base.util import bytes_to_int
 from typing import Any, Optional, Generator, Self, Union
 
-from .utils import open_compression
+from .compression import open_compression
 
 __all__ = [
     "MDSBulkDatasetReader",

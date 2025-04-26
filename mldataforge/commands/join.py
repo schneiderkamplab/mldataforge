@@ -12,6 +12,26 @@ def join():
 
 @join.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)
+@click.argument("jinx_paths", type=click.Path(exists=True), required=True, nargs=-1)
+@compression_option(JINX_COMPRESSIONS)
+@compression_args_option()
+@overwrite_option()
+@yes_option()
+@trafo_option()
+def jinx(**kwargs):
+    join_jinx(**kwargs)
+def join_jinx(output_file, jinx_paths, compression, compression_args, overwrite, yes, trafo):
+    check_arguments(output_file, overwrite, yes, jinx_paths)
+    save_jinx(
+        load_jinx_paths(jinx_paths),
+        output_file,
+        compression=compression,
+        compression_args=compression_args,
+        trafo=trafo,
+    )
+
+@join.command()
+@click.argument("output_file", type=click.Path(exists=False), required=True)
 @click.argument("jsonl_files", type=click.Path(exists=True), required=True, nargs=-1)
 @compression_option(JSONL_COMPRESSIONS)
 @compression_args_option()

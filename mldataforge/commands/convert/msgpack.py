@@ -4,11 +4,35 @@ from ...compression import *
 from ...options import *
 from ...utils import *
 
-__all__ = ["msgpack_to_mds", "msgpack_to_parquet"]
+__all__ = ["msgpack_to_jinx", "msgpack_to_jsonl", "msgpack_to_mds", "msgpack_to_parquet"]
 
 @click.group()
 def msgpack():
     pass
+
+@msgpack.command()
+@click.argument('output_file', type=click.Path(exists=False))
+@click.argument('msgpack_files', nargs=-1, type=click.Path(exists=True))
+@compression_option(JINX_COMPRESSIONS)
+@compression_args_option()
+@overwrite_option()
+@yes_option()
+@size_hint_option()
+@shard_size_option()
+@trafo_option()
+def jinx(**kwargs):
+    msgpack_to_jinx(**kwargs)
+def msgpack_to_jinx(output_file, msgpack_files, compression, compression_args, overwrite, yes, size_hint, shard_size, trafo):
+    check_arguments(output_file, overwrite, yes, msgpack_files)
+    save_jinx(
+        load_msgpack_files(msgpack_files),
+        output_file,
+        compression=compression,
+        compression_args=compression_args,
+        size_hint=size_hint,
+        shard_size=shard_size,
+        trafo=trafo,
+    )
 
 @msgpack.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)

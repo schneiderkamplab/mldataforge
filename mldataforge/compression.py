@@ -14,6 +14,7 @@ from .pigz import pigz_open
 from .snappy import snappy_open
 
 __all__ = [
+    "JINX_COMPRESSIONS",
     "JSONL_COMPRESSIONS",
     "MDS_COMPRESSIONS",
     "MSGPACK_COMPRESSIONS",
@@ -27,9 +28,13 @@ __all__ = [
     "use_pigz",
 ]
 
+JINX_COMPRESSIONS = dict(
+    default="zstd",
+    choices=["none", "brotli", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
+)
 JSONL_COMPRESSIONS = dict(
     default="infer",
-    choices=["infer", "none", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
+    choices=["infer", "none", "brotli", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
 )
 MDS_COMPRESSIONS = dict(
     default=None,
@@ -37,7 +42,7 @@ MDS_COMPRESSIONS = dict(
 )
 MSGPACK_COMPRESSIONS = dict(
     default="infer",
-    choices=["infer", "none", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
+    choices=["infer", "none", "brotli", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
 )
 PARQUET_COMPRESSIONS = dict(
     default="snappy",
@@ -47,6 +52,14 @@ PARQUET_COMPRESSIONS = dict(
 def determine_compression(fmt, file_path, compression="infer", no_pigz=False):
     if compression == "none":
         return None
+    if fmt == "jinx":
+        if compression == "brotli":
+            return "br"
+        if compression == "gzip":
+            return "gz"
+        if compression == "zstd":
+            return "zst"
+        return compression
     if fmt in ("jsonl", "msgpack"):
         if compression == "infer":
             compression = infer_compression(file_path)

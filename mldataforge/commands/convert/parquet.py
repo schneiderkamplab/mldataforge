@@ -4,11 +4,35 @@ from ...compression import *
 from ...options import *
 from ...utils import *
 
-__all__ = ["parquet_to_jsonl", "parquet_to_mds", "parquet_to_msgpack"]
+__all__ = ["parquet_to_jinx", "parquet_to_jsonl", "parquet_to_mds", "parquet_to_msgpack"]
 
 @click.group()
 def parquet():
     pass
+
+@parquet.command()
+@click.argument('output_file', type=click.Path(exists=False))
+@click.argument('parquet_files', nargs=-1, type=click.Path(exists=True))
+@compression_option(JINX_COMPRESSIONS)
+@compression_args_option()
+@overwrite_option()
+@yes_option()
+@size_hint_option()
+@shard_size_option()
+@trafo_option()
+def jinx(**kwargs):
+    parquet_to_jinx(**kwargs)
+def parquet_to_jinx(output_file, parquet_files, compression, compression_args, overwrite, yes, size_hint, shard_size, trafo):
+    check_arguments(output_file, overwrite, yes, parquet_files)
+    save_jinx(
+        load_parquet_files(parquet_files),
+        output_file,
+        compression=compression,
+        compression_args=compression_args,
+        size_hint=size_hint,
+        shard_size=shard_size,
+        trafo=trafo,
+    )
 
 @parquet.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)

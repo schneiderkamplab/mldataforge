@@ -29,4 +29,4 @@ steps:
     - test.concatenated.mds
     sort_key: "def key(sample): return len(sample['input_ids'])"
     sink:
-      test.sorted.jsonl.gz
+      test.sorted.jinx

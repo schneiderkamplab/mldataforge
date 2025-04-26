@@ -4,6 +4,9 @@ from pathlib import Path
 import pytest
 
 @pytest.mark.parametrize("fmt,trafo,out_file,in_file", [
+    pytest.param("jinx", ["from mldataforge.trafos import identity as process"], "test.identity.jinx", "test.jsonl.jinx", marks=pytest.mark.dependency(depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.jinx", "test.jsonl.jinx", marks=pytest.mark.dependency(name="trafos_flatten_jinx", depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.jinx", "test.flattened.jinx", marks=pytest.mark.dependency(depends=["trafos_flatten_jinx"], scope="session")),
     ("jsonl", ["from mldataforge.trafos import identity as process"], "test.identity.jsonl", "test.jsonl"),
     pytest.param("jsonl", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.jsonl", "test.jsonl", marks=pytest.mark.dependency(name="trafos_flatten_jsonl", scope="session")),
     pytest.param("jsonl", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.jsonl", "test.flattened.jsonl", marks=pytest.mark.dependency(depends=["trafos_flatten_jsonl"], scope="session")),
@@ -13,6 +16,7 @@ import pytest
     pytest.param("parquet", ["from mldataforge.trafos import identity as process"], "test.identity.parquet", "test.jsonl.parquet", marks=pytest.mark.dependency(depends=["convert_jsonl_parquet"], scope="session")),
     pytest.param("parquet", ["from mldataforge.trafos import flatten_json as process"], "test.flattened.parquet", "test.jsonl.parquet", marks=pytest.mark.dependency(name="trafos_flatten_parquet", depends=["convert_jsonl_parquet"], scope="session")),
     pytest.param("parquet", ["from mldataforge.trafos import unflatten_json as process"], "test.unflattened.parquet", "test.flattened.parquet", marks=pytest.mark.dependency(depends=["trafos_flatten_parquet"], scope="session")),
+    pytest.param("jinx", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.jinx", "test.jsonl.jinx", marks=pytest.mark.dependency(name="trafos_test_tokenized_jinx", depends=["convert_jsonl_jinx"], scope="session")),
     ("jsonl", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.jsonl", "test.jsonl"),
     pytest.param("mds", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.mds", "test.jsonl.mds", marks=pytest.mark.dependency(name="trafos_test_tokenized_mds", depends=["convert_jsonl_mds"], scope="session")),
     pytest.param("parquet", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.parquet", "test.jsonl.parquet", marks=pytest.mark.dependency(depends=["convert_jsonl_parquet"], scope="session")),

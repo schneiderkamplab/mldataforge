@@ -1,5 +1,6 @@
 import click
 
+from .jinx import jinx
 from .jsonl import jsonl
 from .mds import mds
 from .msgpack import msgpack
@@ -11,6 +12,7 @@ __all__ = ["convert"]
 def convert():
     pass
 
+convert.add_command(jinx)
 convert.add_command(jsonl)
 convert.add_command(mds)
 convert.add_command(msgpack)

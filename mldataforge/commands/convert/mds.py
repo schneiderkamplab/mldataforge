@@ -4,11 +4,41 @@ from ...compression import *
 from ...options import *
 from ...utils import *
 
-__all__ = ["mds_to_jsonl", "mds_to_msgpack", "mds_to_parquet"]
+__all__ = ["mds_to_jinx", "mds_to_jsonl", "mds_to_msgpack", "mds_to_parquet"]
 
 @click.group()
 def mds():
     pass
+
+@mds.command()
+@click.argument('output_file', type=click.Path(exists=False))
+@click.argument('mds_directories', nargs=-1, type=click.Path(exists=True))
+@compression_option(JINX_COMPRESSIONS)
+@compression_args_option()
+@overwrite_option()
+@yes_option()
+@split_option()
+@batch_size_option()
+@reader_option()
+@size_hint_option()
+@shard_size_option()
+@trafo_option()
+@shuffle_option()
+@index_option()
+@sort_key_option()
+def jinx(**kwargs):
+    mds_to_jinx(**kwargs)
+def mds_to_jinx(output_file, mds_directories, compression, compression_args, overwrite, yes, split, batch_size, reader, size_hint, shard_size, trafo, shuffle, index, sort_key):
+    check_arguments(output_file, overwrite, yes, mds_directories)
+    save_jinx(
+        load_mds_directories(mds_directories, split=split, batch_size=batch_size, reader=reader, shuffle=shuffle, index=index, sort_key=sort_key),
+        output_file,
+        compression=compression,
+        compression_args=compression_args,
+        size_hint=size_hint,
+        shard_size=shard_size,
+        trafo=trafo,
+    )
 
 @mds.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)

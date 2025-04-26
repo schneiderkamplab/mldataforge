@@ -19,6 +19,7 @@ import yaml
 
 from .compression import determine_compression, open_compression, pigz_compress
 from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation, sort_permutation
+from .jinx import JinxDatasetReader, JinxWriter
 from .mds import MDS_READERS, MDSBulkDatasetReader, MDSRAMDatasetReader, MDSSampleWriter
 from .trafos import get_transformations
 
@@ -31,12 +32,14 @@ __all__ = [
     "get_max_index",
     "join_indices",
     "load_index",
+    "load_jinx_paths",
     "load_jsonl_files",
     "load_mds_directories",
     "load_msgpack_files",
     "load_parquet_files",
     "load_pipeline_config",
     "save_index",
+    "save_jinx",
     "save_jsonl",
     "save_mds",
     "save_msgpack",
@@ -227,6 +230,9 @@ def load_index(input_file):
         indices = np.load(f)
     return indices
 
+def load_jinx_paths(jinx_paths):
+    return JinxDatasetReader(jinx_paths)
+
 def load_jsonl_files(jsonl_files):
     compressions = [determine_compression("jsonl", jsonl_file) for jsonl_file in jsonl_files]
     if "br" in compressions or "snappy" in compressions:
@@ -317,6 +323,27 @@ def load_pipeline_config(pipeline_config):
 def save_index(indices, output_file, overwrite=True, yes=True):
     with open(output_file, "wb") as f:
         np.save(f, indices)
+
+def save_jinx(iterable, output_file, compression=None, compression_args={"processes": 64}, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None):
+    compression = determine_compression("jinx", output_file, compression)
+    writer = None
+    part = 0
+    trafo = get_transformations(trafo)
+    for sample in tqdm(trafo(iterable), desc="Writing to JINX", unit="sample", disable=not CFG["progress"]):
+        if writer is None:
+            part_file = output_file.format(part=part)
+            check_arguments(part_file, overwrite, yes)
+            writer = JinxWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, encoding="base85", compress_threshold=128, compress_ratio=0.67)
+            offset = 0
+        prev = writer.tell()
+        writer.write(sample)
+        offset += (writer.tell() - prev) if prev < writer.tell() else writer.tell()
+        if size_hint is not None and offset >= size_hint:
+            writer.close()
+            part += 1
+            writer = None
+    if writer is not None:
+        writer.close()
 
 def save_jsonl(iterable, output_file, compression=None, compression_args={"processes": 64}, size_hint=None, overwrite=True, yes=True, trafo=None):
     f = None

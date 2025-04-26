@@ -4,39 +4,37 @@ from ...compression import *
 from ...options import *
 from ...utils import *
 
-__all__ = ["jsonl_to_jinx", "jsonl_to_mds", "jsonl_to_msgpack", "jsonl_to_parquet"]
+__all__ = ["jsonl_to_mds", "jsonl_to_parquet"]
 
 @click.group()
-def jsonl():
+def jinx():
     pass
 
-@jsonl.command()
+@jinx.command()
 @click.argument('output_file', type=click.Path(exists=False))
-@click.argument('jsonl_files', nargs=-1, type=click.Path(exists=True))
-@compression_option(JINX_COMPRESSIONS)
+@click.argument('jinx_paths', nargs=-1, type=click.Path(exists=True))
+@compression_option(JSONL_COMPRESSIONS)
 @compression_args_option()
 @overwrite_option()
 @yes_option()
 @size_hint_option()
-@shard_size_option()
 @trafo_option()
-def jinx(**kwargs):
-    jsonl_to_jinx(**kwargs)
-def jsonl_to_jinx(output_file, jsonl_files, compression, compression_args, overwrite, yes, size_hint, shard_size, trafo):
-    check_arguments(output_file, overwrite, yes, jsonl_files)
-    save_jinx(
-        load_jsonl_files(jsonl_files),
+def jsonl(**kwargs):
+    jinx_to_jsonl(**kwargs)
+def jinx_to_jsonl(output_file, jinx_paths, compression, compression_args, overwrite, yes, size_hint, trafo):
+    check_arguments(output_file, overwrite, yes, jinx_paths)
+    save_jsonl(
+        load_jinx_paths(jinx_paths),
         output_file,
         compression=compression,
         compression_args=compression_args,
         size_hint=size_hint,
-        shard_size=shard_size,
         trafo=trafo,
     )
 
-@jsonl.command()
+@jinx.command()
 @click.argument('output_dir', type=click.Path(exists=False))
-@click.argument('jsonl_files', nargs=-1, type=click.Path(exists=True))
+@click.argument('jinx_paths', nargs=-1, type=click.Path(exists=True))
 @compression_option(MDS_COMPRESSIONS)
 @compression_args_option()
 @overwrite_option()
@@ -47,10 +45,10 @@ def jsonl_to_jinx(output_file, jsonl_files, compression, compression_args, overw
 @trafo_option()
 def mds(**kwargs):
     jsonl_to_mds(**kwargs)
-def jsonl_to_mds(output_dir, jsonl_files, compression, compression_args, overwrite, yes, buf_size, shard_size, no_pigz, trafo):
-    check_arguments(output_dir, overwrite, yes, jsonl_files)
+def jsonl_to_mds(output_dir, jinx_paths, compression, compression_args, overwrite, yes, buf_size, shard_size, no_pigz, trafo):
+    check_arguments(output_dir, overwrite, yes, jinx_paths)
     save_mds(
-        load_jsonl_files(jsonl_files),
+        load_jinx_paths(jinx_paths),
         output_dir,
         compression=compression,
         compression_args=compression_args,
@@ -60,9 +58,9 @@ def jsonl_to_mds(output_dir, jsonl_files, compression, compression_args, overwri
         trafo=trafo,
     )
 
-@jsonl.command()
+@jinx.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)
-@click.argument("jsonl_files", type=click.Path(exists=True), required=True, nargs=-1)
+@click.argument("jinx_paths", type=click.Path(exists=True), required=True, nargs=-1)
 @compression_option(MSGPACK_COMPRESSIONS)
 @compression_args_option()
 @overwrite_option()
@@ -70,19 +68,19 @@ def jsonl_to_mds(output_dir, jsonl_files, compression, compression_args, overwri
 @trafo_option()
 def msgpack(**kwargs):
     jsonl_to_msgpack(**kwargs)
-def jsonl_to_msgpack(output_file, jsonl_files, compression, compression_args, overwrite, yes, trafo):
-    check_arguments(output_file, overwrite, yes, jsonl_files)
+def jsonl_to_msgpack(output_file, jinx_paths, compression, compression_args, overwrite, yes, trafo):
+    check_arguments(output_file, overwrite, yes, jinx_paths)
     save_msgpack(
-        load_jsonl_files(jsonl_files),
+        load_jinx_paths(jinx_paths),
         output_file,
         compression=compression,
         compression_args=compression_args,
         trafo=trafo,
     )
 
-@jsonl.command()
+@jinx.command()
 @click.argument('output_file', type=click.Path(exists=False))
-@click.argument('jsonl_files', nargs=-1, type=click.Path(exists=True))
+@click.argument('jinx_paths', nargs=-1, type=click.Path(exists=True))
 @compression_option(PARQUET_COMPRESSIONS)
 @compression_args_option()
 @overwrite_option()
@@ -91,10 +89,10 @@ def jsonl_to_msgpack(output_file, jsonl_files, compression, compression_args, ov
 @trafo_option()
 def parquet(**kwargs):
     jsonl_to_parquet(**kwargs)
-def jsonl_to_parquet(output_file, jsonl_files, compression, compression_args, overwrite, yes, batch_size, trafo):
-    check_arguments(output_file, overwrite, yes, jsonl_files)
+def jsonl_to_parquet(output_file, jinx_paths, compression, compression_args, overwrite, yes, batch_size, trafo):
+    check_arguments(output_file, overwrite, yes, jinx_paths)
     save_parquet(
-        load_jsonl_files(jsonl_files),
+        load_jinx_paths(jinx_paths),
         output_file,
         compression=compression,
         compression_args=compression_args,
