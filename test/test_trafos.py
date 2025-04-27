@@ -1,5 +1,5 @@
 import filecmp
-from mldataforge.commands.join import join_jsonl, join_mds, join_parquet
+from mldataforge.commands.join import join_jinx, join_jsonl, join_mds, join_parquet
 from pathlib import Path
 import pytest
 
@@ -22,7 +22,22 @@ import pytest
     pytest.param("parquet", [str(Path(__file__).parent / "trafo_tokenize.py")], "test.tokenized.parquet", "test.jsonl.parquet", marks=pytest.mark.dependency(depends=["convert_jsonl_parquet"], scope="session")),
 ])
 def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor, request):
-    if fmt == "jsonl":
+    if fmt == "jinx":
+        join_jinx(
+            output_file=str(tmp_dir / out_file),
+            jinx_paths=[str(tmp_dir / in_file)],
+            compression="zstd",
+            compression_args={"processes": 64},
+            overwrite=True,
+            yes=True,
+            trafo=trafo,
+            shuffle=None,
+            index=None,
+            sort_key=None,
+        )
+        if "unflatten_json" in trafo or "idenitity" in trafo:
+            assert filecmp.cmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.jinx"), shallow=False), f"Files {out_file} and test.jsonl.jinx are different"
+    elif fmt == "jsonl":
         join_jsonl(
             output_file=str(tmp_dir / out_file),
             jsonl_files=[str(tmp_dir / in_file)],

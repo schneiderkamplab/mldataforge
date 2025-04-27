@@ -47,10 +47,11 @@ import pytest
 from functools import wraps
 
 def pytest_addoption(parser):
-    parser.addoption("--samples", type=int, default=None, help="Number of samples to test on (default: all)")
+    parser.addoption("--samples", type=int, default=1_000, help="Number of samples to test on (default: 1_000)")
     parser.addoption("--tmp-path", type=str, default=None, help="Optional path to use instead of pytest's tmp_path")
     parser.addoption("--progress", action="store_true", default=False, help="Enable progress bar for loading datasets")
     parser.addoption("--compressions", type=str, default=None, help="Comma-separated list of compressions to test (default: all)")
+    parser.addoption("--indices", type=int, default=100_000, help="Size of the index to test (default: 100_000)")
 
 @pytest.fixture(autouse=True)
 def disable_progress_bar(request):

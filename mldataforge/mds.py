@@ -184,15 +184,12 @@ class MDSRAMReader:
         self.uncompressed_filename = None
         if compression is not None:
             self.uncompressed_filename = filename.rsplit(".mds", 1)[0]+".mds"
-            size = os.stat(filename).st_size
-            num_blocks = (size+buf_size-1) // buf_size
             with open_compression(filename, "rb", compression=compression) as f_in, open(self.uncompressed_filename, "wb") as f_out:
-                for _ in range(num_blocks):
+                while True:
                     buf = f_in.read(buf_size)
-                    assert buf
+                    if not buf:
+                        break
                     f_out.write(buf)
-                buf = f_in.read()
-                assert not buf
             filename = self.uncompressed_filename
         self.fp = open(filename, "rb")
         self.samples = np.frombuffer(self.fp.read(4), np.uint32)[0]

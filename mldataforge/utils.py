@@ -136,6 +136,8 @@ def _ensure_json_encoding(value):
         return value.decode("latin1")
     if isinstance(value, np.ndarray):
         return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
     if isinstance(value, list):
         return [_ensure_json_encoding(item) for item in value]
     if isinstance(value, dict):
@@ -230,8 +232,34 @@ def load_index(input_file):
         indices = np.load(f)
     return indices
 
-def load_jinx_paths(jinx_paths):
-    return JinxDatasetReader(jinx_paths)
+def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=None):
+    if shuffle is not None:
+        if index is not None:
+            raise click.BadArgumentUsage("Cannot use index and shuffling simultaneously.")
+        if sort_key is not None:
+            raise click.BadArgumentUsage("Cannot use sort key and shuffling simultaneously.")
+    if index is not None:
+        if sort_key is not None:
+            raise click.BadArgumentUsage("Cannot use sort key and indexing simultaneously.")
+    ds = JinxDatasetReader(jinx_paths, split=split)
+    if shuffle is not None:
+        indices = shuffle_permutation(len(ds), seed=abs(shuffle))
+        if shuffle < 0:
+            indices = reverse_permutation(indices)
+        if CFG["echo"]:
+            click.echo(f"Created shuffle indices for {len(ds)} samples")
+        ds = IndexedDatasetView(ds, indices)
+    if index is not None:
+        indices = load_index(index)
+        if CFG["echo"]:
+            click.echo(f"Loaded index with {len(indices)} indices")
+        ds = IndexedDatasetView(ds, indices)
+    if sort_key is not None:
+        indices = sort_permutation(ds, sort_key)
+        if CFG["echo"]:
+            click.echo(f"Created sort key with {len(indices)} indices")
+        ds = IndexedDatasetView(ds, indices)
+    return ds
 
 def load_jsonl_files(jsonl_files):
     compressions = [determine_compression("jsonl", jsonl_file) for jsonl_file in jsonl_files]
@@ -336,6 +364,7 @@ def save_jinx(iterable, output_file, compression=None, compression_args={"proces
             writer = JinxWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, encoding="base85", compress_threshold=128, compress_ratio=0.67)
             offset = 0
         prev = writer.tell()
+        sample = _ensure_json_encoding(sample)
         writer.write(sample)
         offset += (writer.tell() - prev) if prev < writer.tell() else writer.tell()
         if size_hint is not None and offset >= size_hint:

@@ -203,7 +203,7 @@ def sort_key_option():
         help="Sort key function for the dataset.",
     )
 
-def split_option(default="."):
+def split_option(default=None):
     """
     Option for specifying the split to use.
     """

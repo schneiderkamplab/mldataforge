@@ -169,15 +169,12 @@ def pigz_available():
 
 def pigz_compress(input_file, output_file, processes=64, buf_size=2**24, keep=False, quiet=False):
     """Compress a file using pigz."""
-    size = os.stat(input_file).st_size
-    num_blocks = (size+buf_size-1) // buf_size
     with open(input_file, "rb") as f_in, pigz_open(output_file, "wb", processes=processes) as f_out:
-        for _ in tqdm(range(num_blocks), desc="Compressing with pigz", unit="block", disable=quiet):
+        while True:
             buf = f_in.read(buf_size)
-            assert buf
+            if not buf:
+                break
             f_out.write(buf)
-        buf = f_in.read()
-        assert not buf
     if not keep:
         os.remove(input_file)
         if not quiet:

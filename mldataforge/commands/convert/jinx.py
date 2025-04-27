@@ -17,18 +17,20 @@ def jinx():
 @compression_args_option()
 @overwrite_option()
 @yes_option()
-@size_hint_option()
 @trafo_option()
+@split_option()
+@shuffle_option()
+@index_option()
+@sort_key_option()
 def jsonl(**kwargs):
     jinx_to_jsonl(**kwargs)
-def jinx_to_jsonl(output_file, jinx_paths, compression, compression_args, overwrite, yes, size_hint, trafo):
+def jinx_to_jsonl(output_file, jinx_paths, compression, compression_args, overwrite, yes, trafo, split, shuffle, index, sort_key):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_jsonl(
-        load_jinx_paths(jinx_paths),
+        load_jinx_paths(jinx_paths, split=split, shuffle=shuffle, index=index, sort_key=sort_key),
         output_file,
         compression=compression,
         compression_args=compression_args,
-        size_hint=size_hint,
         trafo=trafo,
     )
 
@@ -43,12 +45,15 @@ def jinx_to_jsonl(output_file, jinx_paths, compression, compression_args, overwr
 @shard_size_option()
 @no_pigz_option()
 @trafo_option()
+@shuffle_option()
+@index_option()
+@sort_key_option()
 def mds(**kwargs):
-    jsonl_to_mds(**kwargs)
-def jsonl_to_mds(output_dir, jinx_paths, compression, compression_args, overwrite, yes, buf_size, shard_size, no_pigz, trafo):
+    jinx_to_mds(**kwargs)
+def jinx_to_mds(output_dir, jinx_paths, compression, compression_args, overwrite, yes, buf_size, shard_size, no_pigz, trafo, shuffle, index, sort_key):
     check_arguments(output_dir, overwrite, yes, jinx_paths)
     save_mds(
-        load_jinx_paths(jinx_paths),
+        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key),
         output_dir,
         compression=compression,
         compression_args=compression_args,
@@ -66,12 +71,15 @@ def jsonl_to_mds(output_dir, jinx_paths, compression, compression_args, overwrit
 @overwrite_option()
 @yes_option()
 @trafo_option()
+@shuffle_option()
+@index_option()
+@sort_key_option()
 def msgpack(**kwargs):
-    jsonl_to_msgpack(**kwargs)
-def jsonl_to_msgpack(output_file, jinx_paths, compression, compression_args, overwrite, yes, trafo):
+    jinx_to_msgpack(**kwargs)
+def jinx_to_msgpack(output_file, jinx_paths, compression, compression_args, overwrite, yes, trafo, shuffle, index, sort_key):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_msgpack(
-        load_jinx_paths(jinx_paths),
+        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key),
         output_file,
         compression=compression,
         compression_args=compression_args,
@@ -87,12 +95,15 @@ def jsonl_to_msgpack(output_file, jinx_paths, compression, compression_args, ove
 @yes_option()
 @batch_size_option()
 @trafo_option()
+@shuffle_option()
+@index_option()
+@sort_key_option()
 def parquet(**kwargs):
-    jsonl_to_parquet(**kwargs)
-def jsonl_to_parquet(output_file, jinx_paths, compression, compression_args, overwrite, yes, batch_size, trafo):
+    jinx_to_parquet(**kwargs)
+def jinx_to_parquet(output_file, jinx_paths, compression, compression_args, overwrite, yes, batch_size, trafo, shuffle, index, sort_key):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_parquet(
-        load_jinx_paths(jinx_paths),
+        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key),
         output_file,
         compression=compression,
         compression_args=compression_args,

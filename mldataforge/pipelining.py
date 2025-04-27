@@ -186,7 +186,7 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
         save_mds(
             ds,
             path,
-            compression=sink.get("compression", None),
+            compression=sink.get("compression", defaults.get("compression", None)),
             compression_args=sink.get("compression_args", defaults.get("compression_args", {"processes": 64})),
             buf_size=sink.get("buffer_size", defaults.get("buffer_size", 2**24)),
             pigz=sink.get("pigz", defaults.get("pigz", True)),

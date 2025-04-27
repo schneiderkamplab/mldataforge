@@ -184,10 +184,11 @@ class JinxWriter:
 
         if self.shard_id > 0 and not self.sharded:
             # Transition to a directory of shards
-            dir_path = self.output_path.with_suffix('')
+            os.rename(self.output_path, self.output_path.with_suffix('.tmp'))
+            dir_path = self.output_path
             dir_path.mkdir(parents=True, exist_ok=True)
             first_shard = dir_path / f"shard-00000.jinx"
-            os.rename(self.output_path, first_shard)
+            os.rename(self.output_path.with_suffix('.tmp'), first_shard)
             self.output_path = dir_path
             self.sharded = True
 
@@ -241,13 +242,13 @@ class JinxWriter:
         return self.current_writer.tell() if self.current_writer else 0
 
 class JinxShardReader:
-    def __init__(self, path: str):
+    def __init__(self, path: str, split=None):
         self.path = Path(path)
         self.file = self.path.open("rb")
 
-        self._load_header()
+        self._load_header(split=split)
 
-    def _load_header(self):
+    def _load_header(self, split=None):
         self.file.seek(-64, 2)
         last_part = self.file.read()
         lines = last_part.strip().split(b"\n")
@@ -268,6 +269,8 @@ class JinxShardReader:
             raise ValueError("Missing compressed index in JINX header.")
 
         self.num_samples = self.header["num_samples"]
+        if split is not None and "split" in self.header and split != self.header["split"]:
+            self.num_samples = 0
         self.encoding = self.header.get("encoding", "base85")
 
     def __len__(self):
@@ -317,7 +320,7 @@ class JinxShardReader:
         self.close()
 
 class JinxDatasetReader:
-    def __init__(self, input_paths):
+    def __init__(self, input_paths, split=None):
         if isinstance(input_paths, (str, Path)):
             input_paths = [input_paths]
 
@@ -335,7 +338,7 @@ class JinxDatasetReader:
 
         total = 0
         for path in self.shard_paths:
-            shard = JinxShardReader(path)
+            shard = JinxShardReader(path, split=split)
             self.shards.append(shard)
             self.lengths.append(len(shard))
             total += len(shard)
