@@ -51,8 +51,18 @@ def compress_data(data, ext):
     else:
         raise ValueError(f"Unsupported compression extension: {ext}")
 
+# Assumes decompress_data and compress_data are defined elsewhere
+
 class JinxShardWriter:
-    def __init__(self, path: str, encoding="base85", compress_threshold=128, compress_ratio=0.67, compression="zst", index_compression="zst"):
+    def __init__(
+        self,
+        path: str,
+        encoding="base85",
+        compress_threshold=128,
+        compress_ratio=0.67,
+        compression="zst",
+        index_compression="zst"
+    ):
         self.path = Path(path)
         self.encoding = encoding
         self.compress_threshold = compress_threshold
@@ -60,8 +70,14 @@ class JinxShardWriter:
         self.compression = compression
         self.index_compression = index_compression
 
+        # Open file in text mode for writing (utf-8), but also allow buffered writing
         self.file = self.path.open("w", encoding="utf-8")
+        self.buffer = self.file.buffer  # raw bytes writing
 
+        # Track offsets manually
+        self.current_offset = 0
+
+        # Temporary file to hold offsets
         tmp_file = tempfile.NamedTemporaryFile(delete=False)
         self.offsets_tmp_path = tmp_file.name
         tmp_file.close()
@@ -71,6 +87,7 @@ class JinxShardWriter:
     def _maybe_compress(self, value):
         if self.compression is None or self.compression == "none":
             return value, None
+
         if isinstance(value, str):
             data = value.encode("utf-8")
         else:
@@ -85,39 +102,49 @@ class JinxShardWriter:
                 encoded = base64.a85encode(compressed).decode("utf-8")
             else:
                 raise ValueError(f"Unsupported encoding: {self.encoding}")
-            return encoded, self.compression if self.compression else "none"
+            return encoded, self.compression
 
         return value, None
 
     def write_sample(self, sample: dict):
-        offset = self.file.tell()
-
-        self.offsets_file.write(offset.to_bytes(8, byteorder='little'))
-        self.num_offsets += 1
-
+        # Serialize sample, compress fields as needed
         new_sample = {}
         for k, v in sample.items():
             compressed_value, compression_type = self._maybe_compress(v)
             if compression_type and compression_type != "none":
-                k = k + "." + compression_type
+                k = f"{k}.{compression_type}"
             new_sample[k] = compressed_value
 
-        json_line = json.dumps(new_sample, ensure_ascii=False)
-        self.file.write(json_line + "\n")
+        # Encode the whole JSON line to bytes
+        json_line = json.dumps(new_sample, ensure_ascii=False) + "\n"
+        encoded_line = json_line.encode("utf-8")
 
-    def close(self, shard_id: int, shard_prev: str = None, shard_next: str = None, split: str = None, dataset_name: str = None, hash_value: str = None):
-        header_offset = self.file.tell()
+        # Record current offset
+        self.offsets_file.write(self.current_offset.to_bytes(8, byteorder='little'))
+        self.num_offsets += 1
 
+        # Write data and update offset
+        self.buffer.write(encoded_line)
+        self.current_offset += len(encoded_line)
+
+    def close(self, shard_id: int, shard_prev: str = None, shard_next: str = None,
+              split: str = None, dataset_name: str = None, hash_value: str = None):
+        # Finish writing data
         self.offsets_file.flush()
         self.offsets_file.close()
 
+        # Read back all offsets
         with open(self.offsets_tmp_path, "rb") as f:
             offsets_bytes = f.read()
 
+        # Compress the offsets
         compressed_index = compress_data(offsets_bytes, self.index_compression)
         encoded_index = base64.a85encode(compressed_index).decode("utf-8")
 
         index_key = "index" if (self.index_compression is None or self.index_compression == "none") else f"index.{self.index_compression}"
+
+        # Write header
+        header_offset = self.current_offset
 
         header = {
             index_key: encoded_index,
@@ -126,7 +153,6 @@ class JinxShardWriter:
             "shard_id": shard_id,
             "version": "1.0",
         }
-
         if shard_prev:
             header["shard_prev"] = shard_prev
         if shard_next:
@@ -139,20 +165,24 @@ class JinxShardWriter:
             header["hash"] = hash_value
 
         header_json = json.dumps(header, ensure_ascii=False)
+
+        # Write header and final offset
         self.file.write(header_json + "\n")
         self.file.write(str(header_offset) + "\n")
-
         self.file.close()
+
+        # Clean up temporary offset file
         os.remove(self.offsets_tmp_path)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
+        # If user forgets to close, still call close with minimal required args
+        self.close(shard_id=-1)
 
     def tell(self):
-        return self.file.tell()
+        return self.current_offset
 
 class JinxWriter:
     def __init__(self, output_path: str, shard_size: int, compression="zst", index_compression="zst", encoding="base85", compress_threshold=128, compress_ratio=0.67):
