@@ -69,6 +69,8 @@ class JinxShardWriter:
         self.num_offsets = 0
 
     def _maybe_compress(self, value):
+        if self.compression is None or self.compression == "none":
+            return value, None
         if isinstance(value, str):
             data = value.encode("utf-8")
         else:
@@ -90,7 +92,6 @@ class JinxShardWriter:
     def write_sample(self, sample: dict):
         offset = self.file.tell()
 
-        self.offsets_file.seek(self.num_offsets * 8)
         self.offsets_file.write(offset.to_bytes(8, byteorder='little'))
         self.num_offsets += 1
 
@@ -259,14 +260,27 @@ class JinxShardReader:
         header_line = self.file.readline().decode("utf-8").strip()
         self.header = json.loads(header_line)
 
-        index_key = next((k for k in self.header if k.startswith("index.")), None)
-        if index_key:
-            ext = index_key.split(".", 1)[-1]
-            index_bytes = base64.a85decode(self.header[index_key].encode("utf-8"))
-            index_decompressed = decompress_data(index_bytes, ext)
-            self.offsets = np.frombuffer(index_decompressed, dtype=np.uint64)
+        if "index" in self.header:
+            index_value = self.header["index"]
+            if isinstance(index_value, list):
+                # Uncompressed, direct offsets
+                self.offsets = np.array(index_value, dtype=np.uint64)
+            elif isinstance(index_value, str):
+                # It's a base85-encoded string, assume raw uint64 array
+                index_bytes = base64.a85decode(index_value.encode("utf-8"))
+                self.offsets = np.frombuffer(index_bytes, dtype=np.uint64)
+            else:
+                raise ValueError(f"Unsupported type for index: {type(index_value)}")
         else:
-            raise ValueError("Missing compressed index in JINX header.")
+            # Look for compressed index with extensions
+            index_key = next((k for k in self.header if k.startswith("index.")), None)
+            if index_key:
+                ext = index_key.split(".", 1)[-1]
+                index_bytes = base64.a85decode(self.header[index_key].encode("utf-8"))
+                index_decompressed = decompress_data(index_bytes, ext)
+                self.offsets = np.frombuffer(index_decompressed, dtype=np.uint64)
+            else:
+                raise ValueError("Missing index in JINX header.")
 
         self.num_samples = self.header["num_samples"]
         if split is not None and "split" in self.header and split != self.header["split"]:

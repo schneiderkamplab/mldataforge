@@ -366,7 +366,8 @@ def save_jinx(iterable, output_file, compression=None, compression_args={"proces
         prev = writer.tell()
         sample = _ensure_json_encoding(sample)
         writer.write(sample)
-        offset += (writer.tell() - prev) if prev < writer.tell() else writer.tell()
+        post = writer.tell()
+        offset += (post - prev) if prev < post else post
         if size_hint is not None and offset >= size_hint:
             writer.close()
             part += 1
