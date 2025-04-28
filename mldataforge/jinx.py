@@ -179,9 +179,11 @@ class JinxWriter:
 
     _SHARD_TEMPLATE = "shard-{shard_id:05d}.jinx"
 
-    def __init__(self, output_path: str, shard_size: int, compression="zst", index_compression="zst", encoding="base85", compress_threshold=128, compress_ratio=0.67):
+    def __init__(self, output_path: str, shard_size: int, split=None, append=False, compression="zst", index_compression="zst", encoding="base85", compress_threshold=128, compress_ratio=0.67):
         self.output_path = Path(output_path)
         self.shard_size = shard_size
+        self.split = split
+        self.append = append
         self.compression = compression
         self.index_compression = index_compression
         self.encoding = encoding
@@ -193,7 +195,11 @@ class JinxWriter:
             self.current_path = str(self.output_path)
         else:
             os.makedirs(self.output_path, exist_ok=True)
-            self.current_path = str(self.output_path / self._SHARD_TEMPLATE.format(shard_id=self.shard_id))
+            while True:
+                self.current_path = str(self.output_path / self._SHARD_TEMPLATE.format(shard_id=self.shard_id))
+                if not append or not os.path.exists(self.current_path):
+                    break
+                self.shard_id += 1
         self._open_writer()
 
     def _open_writer(self):
@@ -220,6 +226,7 @@ class JinxWriter:
                 shard_id=self.shard_id,
                 shard_prev=self.previous_shard_path,
                 shard_next=next_shard_path,
+                split=self.split,
             )
             self.current_writer = None
 
