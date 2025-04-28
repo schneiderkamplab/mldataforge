@@ -76,56 +76,40 @@ class JinxShardWriter:
         self.num_offsets = 0
 
     def _maybe_compress(self, value):
-        if self.compression is None or self.compression == "none":
+        if self.compression is None:
             return value, None
-
-        if isinstance(value, str):
-            data = value.encode("utf-8")
-        else:
-            data = json.dumps(value, ensure_ascii=False).encode("utf-8")
-
+        data = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
         if len(data) < self.compress_threshold:
             return value, None
-
+        data = data.encode("utf-8")
         compressed = compress_data(data, self.compression)
         if len(compressed) <= self.compress_ratio * len(data):
             if self.encoding == "base85":
                 encoded = base64.a85encode(compressed).decode("utf-8")
+            elif self.encoding == "base64":
+                encoded = base64.b64encode(compressed).decode("utf-8")
             else:
                 raise ValueError(f"Unsupported encoding: {self.encoding}")
             return encoded, self.compression
-
         return value, None
 
     def write_sample(self, sample: dict):
-        # Serialize sample, compress fields as needed
         new_sample = {}
         for k, v in sample.items():
             compressed_value, compression_type = self._maybe_compress(v)
-            if compression_type and compression_type != "none":
+            if compression_type is not None:
                 k = f"{k}.{compression_type}"
             new_sample[k] = compressed_value
-
-        # Encode the whole JSON line to bytes
-        json_line = json.dumps(new_sample, ensure_ascii=False) + "\n"
+        json_line = f"{json.dumps(new_sample, ensure_ascii=False)}\n"
         encoded_line = json_line.encode("utf-8")
-
-        # Record current offset
         self.offsets_file.write(self.current_offset.to_bytes(8, byteorder='little'))
-        self.num_offsets += 1
-
-        # Write data and update offset
         self.file.write(encoded_line)
+        self.num_offsets += 1
         self.current_offset += len(encoded_line)
-        return len(encoded_line)
 
     def close(self, shard_id: int, shard_prev: str = None, shard_next: str = None,
               split: str = None, dataset_name: str = None, hash_value: str = None):
-        # Finish writing data
-        self.offsets_file.flush()
         self.offsets_file.close()
-
-        # Read back all offsets
         with open(self.offsets_tmp_path, "rb") as f:
             offsets_bytes = f.read()
 
@@ -179,7 +163,18 @@ class JinxWriter:
 
     _SHARD_TEMPLATE = "shard-{shard_id:05d}.jinx"
 
-    def __init__(self, output_path: str, shard_size: int, split=None, append=False, compression="zst", index_compression="zst", encoding="base85", compress_threshold=128, compress_ratio=0.67):
+    def __init__(
+        self,
+        output_path: str,
+        shard_size: int,
+        split=None,
+        append=False,
+        compression="zst",
+        index_compression="zst",
+        encoding="base85",
+        compress_threshold=128,
+        compress_ratio=0.67,
+    ):
         self.output_path = Path(output_path)
         self.shard_size = shard_size
         self.split = split
