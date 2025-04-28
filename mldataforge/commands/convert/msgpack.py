@@ -18,7 +18,7 @@ def msgpack():
 @overwrite_option()
 @yes_option()
 @size_hint_option()
-@shard_size_option()
+@shard_size_option(default=None)
 @trafo_option()
 def jinx(**kwargs):
     msgpack_to_jinx(**kwargs)

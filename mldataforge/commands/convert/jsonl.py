@@ -18,7 +18,7 @@ def jsonl():
 @overwrite_option()
 @yes_option()
 @size_hint_option()
-@shard_size_option()
+@shard_size_option(default=None)
 @trafo_option()
 def jinx(**kwargs):
     jsonl_to_jinx(**kwargs)

@@ -19,19 +19,21 @@ def split():
 @compression_args_option()
 @overwrite_option()
 @yes_option()
+@shard_size_option(default=None)
 @trafo_option()
 @shuffle_option()
 @index_option()
 @sort_key_option()
 def jinx(*args, **kwargs):
     split_jinx(*args, **kwargs)
-def split_jinx(jinx_paths, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, trafo, shuffle, index, sort_key):
+def split_jinx(jinx_paths, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, shard_size, trafo, shuffle, index, sort_key):
     save_jinx(
         load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key),
         output_file=f"{output_dir}/{prefix}{{part:04d}}.jinx",
         compression=compression,
         compression_args=compression_args,
         size_hint=size_hint,
+        shard_size=shard_size,
         overwrite=overwrite,
         yes=yes,
         trafo=trafo,

@@ -17,19 +17,21 @@ def join():
 @compression_args_option()
 @overwrite_option()
 @yes_option()
+@shard_size_option(default=None)
 @trafo_option()
 @shuffle_option()
 @index_option()
 @sort_key_option()
 def jinx(**kwargs):
     join_jinx(**kwargs)
-def join_jinx(output_file, jinx_paths, compression, compression_args, overwrite, yes, trafo, shuffle, index, sort_key):
+def join_jinx(output_file, jinx_paths, compression, compression_args, overwrite, yes, shard_size, trafo, shuffle, index, sort_key):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_jinx(
         load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key),
         output_file,
         compression=compression,
         compression_args=compression_args,
+        shard_size=shard_size,
         trafo=trafo,
     )
 

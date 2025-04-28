@@ -30,6 +30,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor, request):
             compression_args={"processes": 64},
             overwrite=True,
             yes=True,
+            shard_size=None,
             trafo=trafo,
             shuffle=None,
             index=None,

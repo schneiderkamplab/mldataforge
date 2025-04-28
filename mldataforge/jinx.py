@@ -51,8 +51,6 @@ def compress_data(data, ext):
     else:
         raise ValueError(f"Unsupported compression extension: {ext}")
 
-# Assumes decompress_data and compress_data are defined elsewhere
-
 class JinxShardWriter:
     def __init__(
         self,
@@ -69,15 +67,8 @@ class JinxShardWriter:
         self.compress_ratio = compress_ratio
         self.compression = compression
         self.index_compression = index_compression
-
-        # Open file in text mode for writing (utf-8), but also allow buffered writing
-        self.file = self.path.open("w", encoding="utf-8")
-        self.buffer = self.file.buffer  # raw bytes writing
-
-        # Track offsets manually
+        self.file = self.path.open("wb")
         self.current_offset = 0
-
-        # Temporary file to hold offsets
         tmp_file = tempfile.NamedTemporaryFile(delete=False)
         self.offsets_tmp_path = tmp_file.name
         tmp_file.close()
@@ -124,8 +115,9 @@ class JinxShardWriter:
         self.num_offsets += 1
 
         # Write data and update offset
-        self.buffer.write(encoded_line)
+        self.file.write(encoded_line)
         self.current_offset += len(encoded_line)
+        return len(encoded_line)
 
     def close(self, shard_id: int, shard_prev: str = None, shard_next: str = None,
               split: str = None, dataset_name: str = None, hash_value: str = None):
@@ -167,8 +159,7 @@ class JinxShardWriter:
         header_json = json.dumps(header, ensure_ascii=False)
 
         # Write header and final offset
-        self.file.write(header_json + "\n")
-        self.file.write(str(header_offset) + "\n")
+        self.file.write(f"{header_json}\n{header_offset}\n".encode("utf-8"))
         self.file.close()
 
         # Clean up temporary offset file
@@ -185,6 +176,9 @@ class JinxShardWriter:
         return self.current_offset
 
 class JinxWriter:
+
+    _SHARD_TEMPLATE = "shard-{shard_id:05d}.jinx"
+
     def __init__(self, output_path: str, shard_size: int, compression="zst", index_compression="zst", encoding="base85", compress_threshold=128, compress_ratio=0.67):
         self.output_path = Path(output_path)
         self.shard_size = shard_size
@@ -193,41 +187,16 @@ class JinxWriter:
         self.encoding = encoding
         self.compress_threshold = compress_threshold
         self.compress_ratio = compress_ratio
-
+        self.previous_shard_path = None
         self.shard_id = 0
-        self.current_writer = None
-        self.current_path = self.output_path
-        self.current_shard_bytes = 0
-        self.previous_shard_name = None
-        self.sharded = False
-
-        self._open_new_shard()
-
-    def _open_new_shard(self):
-        if self.current_writer:
-            self.current_writer.close(
-                shard_id=self.shard_id,
-                shard_prev=self.previous_shard_name,
-                shard_next=self._next_shard_name(self.shard_id + 1),
-            )
-            self.previous_shard_name = self.current_path.name
-            self.shard_id += 1
-
-        if self.shard_id > 0 and not self.sharded:
-            # Transition to a directory of shards
-            os.rename(self.output_path, self.output_path.with_suffix('.tmp'))
-            dir_path = self.output_path
-            dir_path.mkdir(parents=True, exist_ok=True)
-            first_shard = dir_path / f"shard-00000.jinx"
-            os.rename(self.output_path.with_suffix('.tmp'), first_shard)
-            self.output_path = dir_path
-            self.sharded = True
-
-        if self.sharded:
-            self.current_path = self.output_path / f"shard-{self.shard_id:05d}.jinx"
+        if self.shard_size is None:
+            self.current_path = str(self.output_path)
         else:
-            self.current_path = self.output_path
+            os.makedirs(self.output_path, exist_ok=True)
+            self.current_path = str(self.output_path / self._SHARD_TEMPLATE.format(shard_id=self.shard_id))
+        self._open_writer()
 
+    def _open_writer(self):
         self.current_writer = JinxShardWriter(
             path=self.current_path,
             encoding=self.encoding,
@@ -236,32 +205,31 @@ class JinxWriter:
             compression=self.compression,
             index_compression=self.index_compression,
         )
-        self.current_shard_bytes = 0
 
-    def _next_shard_name(self, shard_id):
-        if self.sharded:
-            return f"shard-{shard_id:05d}.jinx"
-        else:
-            return self.output_path.name
+    def _new_shard(self):
+        next_shard_path = str(self.output_path / self._SHARD_TEMPLATE.format(shard_id=self.shard_id + 1))
+        self._close_writer(next_shard_path=next_shard_path)
+        self.previous_shard_path = str(self.current_path)
+        self.shard_id += 1
+        self.current_path = str(next_shard_path)
+        self._open_writer()
 
-    def write(self, sample: dict):
-        sample_json = json.dumps(sample, ensure_ascii=False)
-        sample_size = len(sample_json.encode("utf-8"))
-
-        if self.shard_size and self.current_shard_bytes + sample_size > self.shard_size and self.current_shard_bytes > 0:
-            self._open_new_shard()
-
-        self.current_writer.write_sample(sample)
-        self.current_shard_bytes += sample_size
-
-    def close(self):
+    def _close_writer(self, next_shard_path=None):
         if self.current_writer:
             self.current_writer.close(
                 shard_id=self.shard_id,
-                shard_prev=self.previous_shard_name,
-                shard_next=None,
+                shard_prev=self.previous_shard_path,
+                shard_next=next_shard_path,
             )
             self.current_writer = None
+
+    def write(self, sample: dict):
+        if self.shard_size is not None and self.current_writer.tell() > self.shard_size:
+            self._new_shard()
+        self.current_writer.write_sample(sample)
+
+    def close(self):
+        self._close_writer()
 
     def __enter__(self):
         return self

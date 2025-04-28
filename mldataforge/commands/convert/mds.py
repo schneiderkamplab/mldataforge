@@ -21,7 +21,7 @@ def mds():
 @batch_size_option()
 @reader_option()
 @size_hint_option()
-@shard_size_option()
+@shard_size_option(default=None)
 @trafo_option()
 @shuffle_option()
 @index_option()
