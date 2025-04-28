@@ -72,7 +72,7 @@ class JinxShardWriter:
         tmp_file = tempfile.NamedTemporaryFile(delete=False)
         self.offsets_tmp_path = tmp_file.name
         tmp_file.close()
-        self.offsets_file = open(self.offsets_tmp_path, "w+b")
+        self.offsets_file = open(self.offsets_tmp_path, "wb")
         self.num_offsets = 0
 
     def _maybe_compress(self, value):
@@ -321,8 +321,18 @@ class JinxShardReader:
         return decompressed
 
     def __iter__(self):
-        for idx in range(len(self)):
-            yield self[idx]
+        original_pos = self.file.tell()
+        try:
+            self.file.seek(self.offsets[0])
+            for _ in range(self.num_samples):
+                line = self.file.readline()
+                if not line:
+                    break
+                line = line.decode("utf-8").strip()
+                sample = json.loads(line)
+                yield self._decompress_sample(sample)
+        finally:
+            self.file.seek(original_pos)
 
     def close(self):
         self.file.close()
