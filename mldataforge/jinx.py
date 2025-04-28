@@ -3,7 +3,7 @@ import bisect
 import brotli
 import bz2
 import gzip
-import json
+import orjson as json
 import lz4.frame
 import lzma
 import numpy as np
@@ -77,13 +77,12 @@ class JinxShardWriter:
 
     def _maybe_compress(self, value):
         if self.compression is None:
+            return value, None  # <- return original Python object, not JSON bytes
+        serialized = json.dumps(value)
+        if len(serialized) < self.compress_threshold:
             return value, None
-        data = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-        if len(data) < self.compress_threshold:
-            return value, None
-        data = data.encode("utf-8")
-        compressed = compress_data(data, self.compression)
-        if len(compressed) <= self.compress_ratio * len(data):
+        compressed = compress_data(serialized, self.compression)
+        if len(compressed) <= self.compress_ratio * len(serialized):
             if self.encoding == "base85":
                 encoded = base64.a85encode(compressed).decode("utf-8")
             elif self.encoding == "base64":
@@ -99,13 +98,13 @@ class JinxShardWriter:
             compressed_value, compression_type = self._maybe_compress(v)
             if compression_type is not None:
                 k = f"{k}.{compression_type}"
-            new_sample[k] = compressed_value
-        json_line = f"{json.dumps(new_sample, ensure_ascii=False)}\n"
-        encoded_line = json_line.encode("utf-8")
+            new_sample[k] = compressed_value.decode("utf-8") if isinstance(compressed_value, bytes) else compressed_value
+        json_line = json.dumps(new_sample)
         self.offsets_file.write(self.current_offset.to_bytes(8, byteorder='little'))
-        self.file.write(encoded_line)
+        self.file.write(json_line)
+        self.file.write(b"\n")
         self.num_offsets += 1
-        self.current_offset += len(encoded_line)
+        self.current_offset += len(json_line)+1
 
     def close(self, shard_id: int, shard_prev: str = None, shard_next: str = None,
               split: str = None, dataset_name: str = None, hash_value: str = None):
@@ -140,10 +139,11 @@ class JinxShardWriter:
         if hash_value:
             header["hash"] = hash_value
 
-        header_json = json.dumps(header, ensure_ascii=False)
+        header_json = json.dumps(header)
 
         # Write header and final offset
-        self.file.write(f"{header_json}\n{header_offset}\n".encode("utf-8"))
+        self.file.write(header_json)
+        self.file.write(f"\n{header_offset}\n".encode("utf-8"))
         self.file.close()
 
         # Clean up temporary offset file
@@ -257,7 +257,9 @@ class JinxShardReader:
         footer_offset = int(lines[-1].decode("utf-8"))
         self.file.seek(footer_offset)
 
-        header_line = self.file.readline().decode("utf-8").strip()
+        print(f"header_offset: {footer_offset}")
+        header_line = self.file.readline().decode("utf-8")
+        print(f"header_line: {header_line}")
         self.header = json.loads(header_line)
 
         if "index" in self.header:
@@ -296,7 +298,7 @@ class JinxShardReader:
 
         offset = self.offsets[idx]
         self.file.seek(offset)
-        line = self.file.readline().decode("utf-8").strip()
+        line = self.file.readline().decode("utf-8")
         sample = json.loads(line)
 
         return self._decompress_sample(sample)
@@ -307,7 +309,7 @@ class JinxShardReader:
             if "." in key:
                 base_key, ext = key.rsplit(".", 1)
                 if ext in {"zst", "bz2", "lz4", "lzma", "snappy", "xz", "gz", "br"}:
-                    data = base64.a85decode(value.encode("utf-8"))
+                    data = base64.a85decode(value.encode("ascii"))
                     decompressed_data = decompress_data(data, ext)
                     try:
                         decompressed[base_key] = json.loads(decompressed_data.decode("utf-8"))
@@ -328,7 +330,7 @@ class JinxShardReader:
                 line = self.file.readline()
                 if not line:
                     break
-                line = line.decode("utf-8").strip()
+                line = line.decode("utf-8")
                 sample = json.loads(line)
                 yield self._decompress_sample(sample)
         finally:
