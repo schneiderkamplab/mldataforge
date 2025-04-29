@@ -303,7 +303,7 @@ class JinxWriter:
             self.current_writer = None
 
     def write(self, sample: dict):
-        if self.shard_size is not None and self.current_writer.tell() > self.shard_size:
+        if self.shard_size is not None and self.current_writer.tell()+self.current_writer.num_offsets*8 > self.shard_size:
             self._new_shard()
         self.current_writer.write_sample(sample)
 
