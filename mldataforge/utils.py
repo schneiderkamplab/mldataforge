@@ -19,7 +19,7 @@ import yaml
 
 from .compression import determine_compression, open_compression, pigz_compress
 from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation, sort_permutation
-from .jinx import JinxDatasetReader, JinxWriter
+from .jinx import JinxDatasetReader, JinxDatasetWriter
 from .mds import MDS_READERS, MDSBulkDatasetReader, MDSRAMDatasetReader, MDSSampleWriter
 from .trafos import get_transformations
 
@@ -361,7 +361,7 @@ def save_jinx(iterable, output_file, compression=None, compression_args={"proces
         if writer is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
-            writer = JinxWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, encoding="base85", compress_threshold=128, compress_ratio=0.67)
+            writer = JinxDatasetWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, encoding="base85", compress_threshold=128, compress_ratio=0.67)
             offset = 0
         prev = writer.tell()
         sample = _ensure_json_encoding(sample)

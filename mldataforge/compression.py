@@ -1,12 +1,14 @@
 import bz2
+import brotli
 import click
 import inspect
+import io
 from isal import igzip as gzip
 import lz4
 import lzma
 import os
 import shutil
-from tqdm import tqdm
+import snappy
 import zstandard
 
 from .brotli import brotli_open
@@ -19,6 +21,9 @@ __all__ = [
     "MDS_COMPRESSIONS",
     "MSGPACK_COMPRESSIONS",
     "PARQUET_COMPRESSIONS",
+    "compress_data",
+    "decompress_data",
+    "decompress_file",
     "determine_compression",
     "extension_compression",
     "infer_compression",
@@ -48,6 +53,126 @@ PARQUET_COMPRESSIONS = dict(
     default="snappy",
     choices=["snappy", "brotli", "gzip", "lz4", "zstd"],
 )
+
+def compress_data(data, ext, chunk_size=65536):
+    if ext is None or ext == "none":
+        return data
+
+    output = io.BytesIO()
+
+    if ext == "zst":
+        cctx = zstandard.ZstdCompressor(level=1)
+        with cctx.stream_writer(output, closefd=False) as compressor:
+            for i in range(0, len(data), chunk_size):
+                compressor.write(data[i:i+chunk_size])
+
+    elif ext == "bz2":
+        compressor = bz2.BZ2Compressor()
+        for i in range(0, len(data), chunk_size):
+            output.write(compressor.compress(data[i:i+chunk_size]))
+        output.write(compressor.flush())
+
+    elif ext in ("lzma", "xz"):
+        compressor = lzma.LZMACompressor()
+        for i in range(0, len(data), chunk_size):
+            output.write(compressor.compress(data[i:i+chunk_size]))
+        output.write(compressor.flush())
+
+    elif ext == "lz4":
+        compressed = lz4.frame.compress(data)
+        output.write(compressed)
+
+    elif ext == "snappy":
+        compressor = snappy.StreamCompressor()
+        for i in range(0, len(data), chunk_size):
+            output.write(compressor.compress(data[i:i+chunk_size]))
+        output.write(compressor.flush())
+
+    elif ext == "gz":
+        with gzip.GzipFile(fileobj=output, mode="wb") as compressor:
+            for i in range(0, len(data), chunk_size):
+                compressor.write(data[i:i+chunk_size])
+
+    elif ext == "br":
+        compressed = brotli.compress(data)
+        output.write(compressed)
+
+    else:
+        raise ValueError(f"Unsupported compression extension: {ext}")
+
+    return output.getvalue()
+
+def decompress_data(data, ext, chunk_size=65536):
+    input_io = io.BytesIO(data)
+    output = io.BytesIO()
+    if ext == "zst":
+        dctx = zstandard.ZstdDecompressor()
+        with dctx.stream_reader(input_io) as reader:
+            while chunk := reader.read(chunk_size):
+                output.write(chunk)
+    elif ext == "bz2":
+        decompressor = bz2.BZ2Decompressor()
+        while chunk := input_io.read(chunk_size):
+            output.write(decompressor.decompress(chunk))
+    elif ext in ("lzma", "xz"):
+        decompressor = lzma.LZMADecompressor()
+        while chunk := input_io.read(chunk_size):
+            output.write(decompressor.decompress(chunk))
+    elif ext == "lz4":
+        with lz4.frame.open(input_io, "rb") as reader:
+            while chunk := reader.read(chunk_size):
+                output.write(chunk)
+    elif ext == "snappy":
+        decompressor = snappy.StreamDecompressor()
+        while chunk := input_io.read(chunk_size):
+            output.write(decompressor.decompress(chunk))
+    elif ext == "gz":
+        with gzip.GzipFile(fileobj=input_io, mode="rb") as reader:
+            while chunk := reader.read(chunk_size):
+                output.write(chunk)
+    elif ext == "br":
+        # Brotli python API does not have streaming decompression, fallback to full decompress
+        decompressed = brotli.decompress(input_io.read())
+        output.write(decompressed)
+    else:
+        raise ValueError(f"Unsupported compression extension: {ext}")
+    return output.getvalue()
+
+def decompress_file(input_path, output_path, ext, chunk_size=65536):
+    with open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
+        if ext == "zst":
+            dctx = zstandard.ZstdDecompressor()
+            with dctx.stream_reader(f_in) as reader:
+                while chunk := reader.read(chunk_size):
+                    f_out.write(chunk)
+        elif ext == "bz2":
+            d = bz2.BZ2Decompressor()
+            while chunk := f_in.read(chunk_size):
+                f_out.write(d.decompress(chunk))
+        elif ext in ("lzma", "xz"):
+            d = lzma.LZMADecompressor()
+            while chunk := f_in.read(chunk_size):
+                f_out.write(d.decompress(chunk))
+        elif ext == "lz4":
+            with lz4.frame.open(f_in, "rb") as reader:
+                while chunk := reader.read(chunk_size):
+                    f_out.write(chunk)
+        elif ext == "snappy":
+            # Read full file, decompress at once
+            compressed = f_in.read()
+            decompressed = snappy.StreamDecompressor().decompress(compressed)
+            f_out.write(decompressed)
+        elif ext == "gz":
+            with gzip.open(f_in, "rb") as reader:
+                while chunk := reader.read(chunk_size):
+                    f_out.write(chunk)
+        elif ext == "br":
+            # Read full file, decompress at once
+            compressed = f_in.read()
+            decompressed = brotli.decompress(compressed)
+            f_out.write(decompressed)
+        else:
+            raise ValueError(f"Unsupported compression extension: {ext}")
 
 def determine_compression(fmt, file_path, compression="infer", no_pigz=False):
     if compression == "none":

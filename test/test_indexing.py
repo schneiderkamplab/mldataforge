@@ -132,7 +132,7 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
             save_jinx(
                 id_iterator(indices),
                 str(tmp_dir / input_directory),
-                compression=None,
+                compression="snappy",
                 compression_args={"processes": 64},
                 shard_size=2**18,
                 size_hint=None,
@@ -160,7 +160,7 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
         join_jinx(
             output_file=sorted_file,
             jinx_paths=[str(tmp_dir / input_directory)],
-            compression=None,
+            compression="snappy",
             compression_args={"processes": 64},
             overwrite=True,
             yes=True,
@@ -173,7 +173,7 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
         join_jinx(
             output_file=resorted_file,
             jinx_paths=[sorted_file],
-            compression=None,
+            compression="snappy",
             compression_args={"processes": 64},
             overwrite=True,
             yes=True,
