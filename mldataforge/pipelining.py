@@ -51,7 +51,7 @@ def _infer_format(source, item, exists):
     if (not exists or item.is_file()) and item.suffix.lower() == ".msgpack":
         return "msgpack"
     if (not exists or item.is_file()) and item.suffix.lower() == ".jinx":
-        return "jsonl"
+        return "jinx"
     if (not exists or item.is_file()) and item.suffix.lower() == ".jsonl":
         return "jsonl"
     if (not exists or item.is_file()) and len(item.suffixes) > 1 and item.suffixes[-2].lower() == ".msgpack":

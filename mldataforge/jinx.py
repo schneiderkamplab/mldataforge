@@ -3,7 +3,7 @@ import bisect
 import brotli
 import bz2
 import gzip
-import orjson as json
+import orjson
 import lz4.frame
 import lzma
 import numpy as np
@@ -32,7 +32,7 @@ def decompress_data(data, ext):
         raise ValueError(f"Unsupported compression extension: {ext}")
 
 def compress_data(data, ext):
-    if ext is None or ext == "none":
+    if ext is None:
         return data
     if ext == "zst":
         return zstd.ZstdCompressor(level=1).compress(data)
@@ -77,8 +77,8 @@ class JinxShardWriter:
 
     def _maybe_compress(self, value):
         if self.compression is None:
-            return value, None  # <- return original Python object, not JSON bytes
-        serialized = json.dumps(value)
+            return value, None
+        serialized = orjson.dumps(value)
         if len(serialized) < self.compress_threshold:
             return value, None
         compressed = compress_data(serialized, self.compression)
@@ -92,14 +92,25 @@ class JinxShardWriter:
             return encoded, self.compression
         return value, None
 
+    def _maybe_compress_recursive(self, value):
+        """Recursively compress dict fields."""
+        if isinstance(value, dict):
+            new_dict = {}
+            for k, v in value.items():
+                compressed_value, compression_type = self._maybe_compress_recursive(v)
+                if compression_type:
+                    k = f"{k}.{compression_type}"
+                new_dict[k] = compressed_value
+            return new_dict, None
+        elif isinstance(value, list):
+            return [self._maybe_compress_recursive(v)[0] for v in value], None
+        else:
+            compressed_value, compression_type = self._maybe_compress(value)
+            return compressed_value, compression_type
+
     def write_sample(self, sample: dict):
-        new_sample = {}
-        for k, v in sample.items():
-            compressed_value, compression_type = self._maybe_compress(v)
-            if compression_type is not None:
-                k = f"{k}.{compression_type}"
-            new_sample[k] = compressed_value.decode("utf-8") if isinstance(compressed_value, bytes) else compressed_value
-        json_line = json.dumps(new_sample)
+        compressed_sample, _ = self._maybe_compress_recursive(sample)
+        json_line = orjson.dumps(compressed_sample)
         self.offsets_file.write(self.current_offset.to_bytes(8, byteorder='little'))
         self.file.write(json_line)
         self.file.write(b"\n")
@@ -139,7 +150,7 @@ class JinxShardWriter:
         if hash_value:
             header["hash"] = hash_value
 
-        header_json = json.dumps(header)
+        header_json = orjson.dumps(header)
 
         # Write header and final offset
         self.file.write(header_json)
@@ -260,7 +271,7 @@ class JinxShardReader:
         print(f"header_offset: {footer_offset}")
         header_line = self.file.readline().decode("utf-8")
         print(f"header_line: {header_line}")
-        self.header = json.loads(header_line)
+        self.header = orjson.loads(header_line)
 
         if "index" in self.header:
             index_value = self.header["index"]
@@ -299,28 +310,33 @@ class JinxShardReader:
         offset = self.offsets[idx]
         self.file.seek(offset)
         line = self.file.readline().decode("utf-8")
-        sample = json.loads(line)
+        sample = orjson.loads(line)
 
         return self._decompress_sample(sample)
 
-    def _decompress_sample(self, sample):
-        decompressed = {}
-        for key, value in sample.items():
-            if "." in key:
-                base_key, ext = key.rsplit(".", 1)
-                if ext in {"zst", "bz2", "lz4", "lzma", "snappy", "xz", "gz", "br"}:
-                    data = base64.a85decode(value.encode("ascii"))
-                    decompressed_data = decompress_data(data, ext)
-                    try:
-                        decompressed[base_key] = json.loads(decompressed_data.decode("utf-8"))
-                    except json.JSONDecodeError:
-                        decompressed[base_key] = decompressed_data.decode("utf-8")
-                else:
-                    decompressed[base_key] = value
-            else:
-                decompressed[key] = value
+    def _maybe_decompress_field(self, key, value):
+        if "." in key:
+            base_key, ext = key.rsplit(".", 1)
+            if ext in {"zst", "bz2", "lz4", "lzma", "snappy", "xz", "gz", "br"}:
+                decoded = base64.a85decode(value.encode("ascii"))
+                decompressed_bytes = decompress_data(decoded, ext)
+                try:
+                    return base_key, orjson.loads(decompressed_bytes)
+                except Exception:
+                    return base_key, decompressed_bytes.decode("utf-8")
+        return key, value
 
-        return decompressed
+    def _decompress_sample(self, value):
+        if isinstance(value, dict):
+            result = {}
+            for k, v in value.items():
+                new_key, new_value = self._maybe_decompress_field(k, self._decompress_sample(v))
+                result[new_key] = new_value
+            return result
+        elif isinstance(value, list):
+            return [self._decompress_sample(v) for v in value]
+        else:
+            return value
 
     def __iter__(self):
         original_pos = self.file.tell()
@@ -331,7 +347,7 @@ class JinxShardReader:
                 if not line:
                     break
                 line = line.decode("utf-8")
-                sample = json.loads(line)
+                sample = orjson.loads(line)
                 yield self._decompress_sample(sample)
         finally:
             self.file.seek(original_pos)
