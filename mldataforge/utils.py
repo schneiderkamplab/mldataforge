@@ -128,16 +128,6 @@ def get_max_index(number, mds_directories, split='.'):
         return number
     raise click.BadParameter("Either mds_directories or number must be provided.")
 
-def _ensure_jinx_encoding(value):
-    """Ensure that the value is JSON serializable."""
-    if isinstance(value, (bytes, str, int, float, np.generic, bool, type(None), np.ndarray)):
-        return value
-    if isinstance(value, list):
-        return [_ensure_jinx_encoding(item) for item in value]
-    if isinstance(value, dict):
-        return {_ensure_json_key(key): _ensure_jinx_encoding(val) for key, val in value.items()}
-    raise TypeError(f"Unsupported type for JSON serialization: {type(value)}")
-
 def _ensure_json_encoding(value):
     """Ensure that the value is JSON serializable."""
     if isinstance(value, (str, int, float, bool, type(None))):
@@ -374,7 +364,6 @@ def save_jinx(iterable, output_file, compression=None, compression_args={"proces
             writer = JinxDatasetWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, encoding="base85", compress_threshold=128, compress_ratio=0.67)
             offset = 0
         prev = writer.tell()
-        sample = _ensure_jinx_encoding(sample)
         writer.write(sample)
         post = writer.tell()
         offset += (post - prev) if prev < post else post
