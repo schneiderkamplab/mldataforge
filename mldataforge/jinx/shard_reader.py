@@ -100,7 +100,6 @@ class JinxShardReader:
                 line = self.file.readline()
                 if not line:
                     break
-                line = line.decode("utf-8")
                 sample = orjson.loads(line)
                 yield self._decompress_sample(sample)
         finally:
