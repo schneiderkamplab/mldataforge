@@ -23,7 +23,7 @@ def decompress_data(data, ext):
     elif ext == "lz4":
         return lz4.frame.decompress(data)
     elif ext == "snappy":
-        return snappy.decompress(data)
+        return snappy.StreamDecompressor().decompress(data)
     elif ext == "gz":
         return gzip.decompress(data)
     elif ext == "br":
@@ -43,13 +43,77 @@ def compress_data(data, ext):
     elif ext == "lz4":
         return lz4.frame.compress(data)
     elif ext == "snappy":
-        return snappy.compress(data)
+        stream = snappy.StreamCompressor()
+        return stream.compress(data) + stream.flush()
     elif ext == "gz":
         return gzip.compress(data)
     elif ext == "br":
         return brotli.compress(data)
     else:
         raise ValueError(f"Unsupported compression extension: {ext}")
+
+def decode_base85_stream_to_file(base85_string, output_file_path, chunk_size=16777215):
+    """
+    Decode a base85-encoded string to a binary file, in memory-efficient chunks.
+    """
+    from base64 import a85decode
+
+    total_len = len(base85_string)
+    pos = 0
+    with open(output_file_path, "wb") as f_out:
+        while pos < total_len:
+            remaining = total_len - pos
+            read_len = min(chunk_size, remaining)
+
+            # Leave any <5-character tail for the final decode
+            if remaining > 5 and read_len % 5 != 0:
+                read_len -= read_len % 5
+
+            chunk = base85_string[pos:pos + read_len]
+            if not chunk:
+                break
+            decoded = a85decode(chunk.encode("ascii"))
+            f_out.write(decoded)
+            pos += read_len
+
+        # Handle any final tail (1–4 characters)
+        if pos < total_len:
+            tail = base85_string[pos:]
+            decoded_tail = a85decode(tail.encode("ascii"))
+            f_out.write(decoded_tail)
+
+def decompress_file(input_path, output_path, ext, chunk_size=65536):
+    with open(input_path, "rb") as f_in, open(output_path, "wb") as f_out:
+        if ext == "zst":
+            dctx = zstd.ZstdDecompressor()
+            with dctx.stream_reader(f_in) as reader:
+                while chunk := reader.read(chunk_size):
+                    f_out.write(chunk)
+        elif ext == "bz2":
+            d = bz2.BZ2Decompressor()
+            while chunk := f_in.read(chunk_size):
+                f_out.write(d.decompress(chunk))
+        elif ext in ("lzma", "xz"):
+            d = lzma.LZMADecompressor()
+            while chunk := f_in.read(chunk_size):
+                f_out.write(d.decompress(chunk))
+        elif ext == "lz4":
+            with lz4.frame.open(f_in, "rb") as reader:
+                while chunk := reader.read(chunk_size):
+                    f_out.write(chunk)
+        elif ext == "snappy":
+            d = snappy.StreamDecompressor()
+            while chunk := f_in.read(chunk_size):
+                f_out.write(d.decompress(chunk))
+        elif ext == "gz":
+            with gzip.open(f_in, "rb") as reader:
+                while chunk := reader.read(chunk_size):
+                    f_out.write(chunk)
+        elif ext == "br":
+            while chunk := f_in.read(chunk_size):
+                f_out.write(brotli.decompress(chunk))
+        else:
+            raise ValueError(f"Unsupported compression extension: {ext}")
 
 class JinxShardWriter:
     def __init__(
@@ -121,19 +185,21 @@ class JinxShardWriter:
               split: str = None, dataset_name: str = None, hash_value: str = None):
         self.offsets_file.close()
         with open(self.offsets_tmp_path, "rb") as f:
-            offsets_bytes = f.read()
+            raw_index_bytes = f.read()
 
         # Compress the offsets
-        compressed_index = compress_data(offsets_bytes, self.index_compression)
-        encoded_index = base64.a85encode(compressed_index).decode("utf-8")
-
-        index_key = "index" if (self.index_compression is None or self.index_compression == "none") else f"index.{self.index_compression}"
-
+        index_key = "index"
+        if self.index_compression:
+            compressed_index = compress_data(raw_index_bytes, self.index_compression)
+            encoded = base64.a85encode(compressed_index).decode("utf-8")
+            index_key = f"index.{self.index_compression}"
+        else:
+            encoded = base64.a85encode(raw_index_bytes).decode("utf-8")
         # Write header
         header_offset = self.current_offset
 
         header = {
-            index_key: encoded_index,
+            index_key: encoded,
             "encoding": self.encoding,
             "num_samples": self.num_offsets,
             "shard_id": shard_id,
@@ -271,27 +337,38 @@ class JinxShardReader:
         header_line = self.file.readline().decode("utf-8")
         self.header = orjson.loads(header_line)
 
-        if "index" in self.header:
-            index_value = self.header["index"]
-            if isinstance(index_value, list):
-                # Uncompressed, direct offsets
-                self.offsets = np.array(index_value, dtype=np.uint64)
-            elif isinstance(index_value, str):
-                # It's a base85-encoded string, assume raw uint64 array
-                index_bytes = base64.a85decode(index_value.encode("utf-8"))
-                self.offsets = np.frombuffer(index_bytes, dtype=np.uint64)
-            else:
-                raise ValueError(f"Unsupported type for index: {type(index_value)}")
-        else:
-            # Look for compressed index with extensions
+        index_key = "index"
+        ext = None
+        if "index" not in self.header:
             index_key = next((k for k in self.header if k.startswith("index.")), None)
-            if index_key:
-                ext = index_key.split(".", 1)[-1]
-                index_bytes = base64.a85decode(self.header[index_key].encode("utf-8"))
-                index_decompressed = decompress_data(index_bytes, ext)
-                self.offsets = np.frombuffer(index_decompressed, dtype=np.uint64)
-            else:
+            if index_key is None:
                 raise ValueError("Missing index in JINX header.")
+            ext = index_key.split(".", 1)[-1]
+
+        index_value = self.header[index_key]
+        if isinstance(index_value, list):
+            self.offsets = np.array(index_value, dtype=np.uint64)
+            self._index_tempfile = None
+        elif isinstance(index_value, str):
+            tmp_base85_path = tempfile.NamedTemporaryFile(delete=False).name
+            #decode_base85_stream_to_file(index_value, tmp_base85_path)
+            with open(tmp_base85_path, "wb") as f_out:
+                f_out.write(base64.a85decode(index_value.encode("ascii")))
+
+            if ext is not None:
+                tmp_decompressed_path = tempfile.NamedTemporaryFile(delete=False).name
+                decompress_file(tmp_base85_path, tmp_decompressed_path, ext)
+                os.remove(tmp_base85_path)
+                tmp_path = tmp_decompressed_path
+            else:
+                tmp_path = tmp_base85_path
+
+            self._index_tempfile = tmp_path
+            if os.path.getsize(tmp_path) == 0:
+                raise ValueError("Decoded index file is empty — possibly corrupted or invalid base85/compression.")
+            self.offsets = np.memmap(tmp_path, dtype=np.uint64, mode="r")
+        else:
+            raise ValueError(f"Unsupported type for index: {type(index_value)}")
 
         self.num_samples = self.header["num_samples"]
         if split is not None and "split" in self.header and split != self.header["split"]:
