@@ -68,7 +68,7 @@ class Transformations:
             return self.pipeline[0]._last_input_len
         raise TypeError("Transformations length is not available until __call__ is used on a sized input.")
 
-def flatten_json(obj, parent_key='', sep='.', escape_char='\\'):
+def flatten_json(obj, parent_key='', sep='$', escape_char='\\'):
     def escape(key):
         return key.replace(escape_char, escape_char * 2)\
                   .replace(sep, escape_char + sep)\
@@ -113,7 +113,7 @@ def get_transformations(trafo: list[str | Callable], indices=None):
 def identity(obj):
     return obj
 
-def unflatten_json(flat_dict, sep='.', escape_char='\\'):
+def unflatten_json(flat_dict, sep='$', escape_char='\\'):
     def check_flat_json(obj):
         assert isinstance(obj, dict), "Input must be a dictionary"
         for k, v in obj.items():

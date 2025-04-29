@@ -1,4 +1,6 @@
 import base64
+import io
+import numpy as np
 import orjson
 import os
 import tempfile
@@ -33,21 +35,30 @@ class JinxShardWriter:
         self.num_offsets = 0
 
     def _maybe_compress(self, value):
-        if self.compression is None:
+        always = isinstance(value, np.ndarray)
+        if self.compression is None and not always:
             return value, None
-        serialized = orjson.dumps(value)
-        if len(serialized) < self.compress_threshold:
-            return value, None
+        ext = None
+        if isinstance(value, np.ndarray):
+            buf = io.BytesIO()
+            np.save(buf, value, allow_pickle=False)
+            buf.seek(0)
+            serialized = buf.read()
+            ext = "npy"
+        else:
+            serialized = orjson.dumps(value)
+        if not always and len(serialized) < self.compress_threshold:
+            return value, ext
         compressed = compress_data(serialized, self.compression)
-        if len(compressed) <= self.compress_ratio * len(serialized):
+        if always or len(compressed) <= self.compress_ratio * len(serialized):
             if self.encoding == "base85":
                 encoded = base64.a85encode(compressed).decode("utf-8")
             elif self.encoding == "base64":
                 encoded = base64.b64encode(compressed).decode("utf-8")
             else:
                 raise ValueError(f"Unsupported encoding: {self.encoding}")
-            return encoded, self.compression
-        return value, None
+            return encoded, ".".join(x for x in (ext, self.compression) if x)
+        return value, ext
 
     def _maybe_compress_recursive(self, value):
         if isinstance(value, dict):
@@ -77,17 +88,12 @@ class JinxShardWriter:
               split: str = None, dataset_name: str = None, hash_value: str = None):
         self.offsets_file.close()
         with open(self.offsets_tmp_path, "rb") as f:
-            raw_index_bytes = f.read()
-        index_key = "index"
-        if self.index_compression:
-            compressed_index = compress_data(raw_index_bytes, self.index_compression)
-            encoded = base64.a85encode(compressed_index).decode("utf-8")
-            index_key = f"index.{self.index_compression}"
-        else:
-            encoded = base64.a85encode(raw_index_bytes).decode("utf-8")
+            offsets = np.fromfile(f, dtype=np.uint64)
+        index, ext = self._maybe_compress(offsets)
+        index_key = f"index.{ext}"
         header_offset = self.current_offset
         header = {
-            index_key: encoded,
+            index_key: index,
             "encoding": self.encoding,
             "num_samples": self.num_offsets,
             "shard_id": shard_id,

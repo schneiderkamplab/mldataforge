@@ -1,4 +1,5 @@
 import base64
+import io
 import orjson
 import numpy as np
 import os
@@ -24,33 +25,26 @@ class JinxShardReader:
         self.file.seek(footer_offset)
         header_line = self.file.readline().decode("utf-8")
         self.header = orjson.loads(header_line)
-        index_key = "index"
-        ext = None
-        if "index" not in self.header:
-            index_key = next((k for k in self.header if k.startswith("index.")), None)
-            if index_key is None:
-                raise ValueError("Missing index in JINX header.")
-            ext = index_key.split(".", 1)[-1]
-        index_value = self.header[index_key]
-        if isinstance(index_value, list):
-            self.offsets = np.array(index_value, dtype=np.uint64)
-            self._index_tempfile = None
-        elif isinstance(index_value, str):
-            tmp_base85_path = tempfile.NamedTemporaryFile(delete=False).name
-            decode_base85_stream_to_file(index_value, tmp_base85_path)
-            if ext is not None:
-                tmp_decompressed_path = tempfile.NamedTemporaryFile(delete=False).name
-                decompress_file(tmp_base85_path, tmp_decompressed_path, ext)
-                os.remove(tmp_base85_path)
-                tmp_path = tmp_decompressed_path
+        index_key = next((k for k in self.header if k.startswith("index.")), None)
+        if index_key is None:
+            raise ValueError("Missing index in JINX header.")
+        extensions = index_key.split(".")[1:]
+        self._index_tmp = tempfile.NamedTemporaryFile(delete=False).name
+        decode_base85_stream_to_file(self.header[index_key], self._index_tmp)
+        for i, ext in reversed(list(enumerate(extensions))):
+            if ext == "npy":
+                assert i == 0, "Numpy arrays should be the first extension"
+                try:
+                    self.offsets = np.load(self._index_tmp, mmap_mode="r")
+                except Exception as e:
+                    raise ValueError(f"Failed to load .npy array for key 'index': {e}")
+            elif ext in {"zst", "bz2", "lz4", "lzma", "snappy", "xz", "gz", "br"}:
+                tmp_path = tempfile.NamedTemporaryFile(delete=False).name
+                decompress_file(self._index_tmp, tmp_path, ext)
+                os.remove(self._index_tmp)
+                self._index_tmp = tmp_path
             else:
-                tmp_path = tmp_base85_path
-            self._index_tempfile = tmp_path
-            if os.path.getsize(tmp_path) == 0:
-                raise ValueError("Decoded index file is empty — possibly corrupted or invalid base85/compression.")
-            self.offsets = np.memmap(tmp_path, dtype=np.uint64, mode="r")
-        else:
-            raise ValueError(f"Unsupported type for index: {type(index_value)}")
+                raise ValueError(f"Unsupported compression type: {ext}")
         self.num_samples = self.header["num_samples"]
         if split is not None and "split" in self.header and split != self.header["split"]:
             self.num_samples = 0
@@ -69,16 +63,33 @@ class JinxShardReader:
         return self._decompress_sample(sample)
 
     def _maybe_decompress_field(self, key, value):
-        if "." in key:
-            base_key, ext = key.rsplit(".", 1)
-            if ext in {"zst", "bz2", "lz4", "lzma", "snappy", "xz", "gz", "br"}:
-                decoded = base64.a85decode(value.encode("ascii"), foldspaces=True)
-                decompressed_bytes = decompress_data(decoded, ext)
+        if "." not in key:
+            return key, value
+        parts = key.split(".")
+        base_key = parts[0]
+        extensions = parts[1:]
+        assert extensions, "Extensions should not be empty"
+        try:
+            decoded = base64.a85decode(value.encode("ascii"), foldspaces=True)
+        except Exception as e:
+            raise ValueError(f"Failed to decode base85 for key '{key}': {e}")
+        for i, ext in reversed(list(enumerate(extensions))):
+            if ext == "npy":
                 try:
-                    return base_key, orjson.loads(decompressed_bytes)
-                except Exception:
-                    return base_key, decompressed_bytes.decode("utf-8")
-        return key, value
+                    return base_key, np.load(io.BytesIO(decoded), allow_pickle=False)
+                except Exception as e:
+                    raise ValueError(f"Failed to load .npy array for key '{key}': {e}")
+            elif ext in {"zst", "bz2", "lz4", "lzma", "snappy", "xz", "gz", "br"}:
+                try:
+                    decoded = decompress_data(decoded, ext)
+                except Exception as e:
+                    raise ValueError(f"Failed to decompress with '{ext}' for key '{key}': {e}")
+            else:
+                break
+        try:
+            return base_key, orjson.loads(decoded)
+        except Exception as e:
+            raise ValueError(f"Failed to decode JSON for key '{key}': {e}")
 
     def _decompress_sample(self, value):
         if isinstance(value, dict):
@@ -107,6 +118,8 @@ class JinxShardReader:
 
     def close(self):
         self.file.close()
+        if hasattr(self, "_index_tmp") and os.path.exists(self._index_tmp):
+            os.remove(self._index_tmp)
 
     def __enter__(self):
         return self
