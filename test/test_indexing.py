@@ -125,7 +125,7 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
         num_indices = request.config.getoption("--indices")
         def id_iterator(it, dtype=np.uint64):
             for i in it:
-                yield {"id": dtype(i)}
+                yield {"id": dtype(i), "payload": b"Hello World!"}
         indices = shuffle_permutation(num_indices, seed=42)
         input_directory = f"test.{num_indices}.{fmt}"
         if fmt == "jinx":

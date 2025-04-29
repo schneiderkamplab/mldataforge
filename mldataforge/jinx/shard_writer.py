@@ -35,7 +35,7 @@ class JinxShardWriter:
         self.num_offsets = 0
 
     def _maybe_compress(self, value):
-        always = isinstance(value, np.ndarray)
+        always = isinstance(value, (bytes, np.ndarray))
         if self.compression is None and not always:
             return value, None
         ext = None
@@ -45,12 +45,15 @@ class JinxShardWriter:
             buf.seek(0)
             serialized = buf.read()
             ext = "npy"
+        elif isinstance(value, bytes):
+            serialized = value
+            ext = "bytes"
         else:
             serialized = orjson.dumps(value)
         if not always and len(serialized) < self.compress_threshold:
             return value, ext
         compressed = compress_data(serialized, self.compression)
-        if always or len(compressed) <= self.compress_ratio * len(serialized):
+        if len(compressed) <= self.compress_ratio * len(serialized):
             if self.encoding == "base85":
                 encoded = base64.a85encode(compressed).decode("utf-8")
             elif self.encoding == "base64":
@@ -58,6 +61,14 @@ class JinxShardWriter:
             else:
                 raise ValueError(f"Unsupported encoding: {self.encoding}")
             return encoded, ".".join(x for x in (ext, self.compression) if x)
+        elif always:
+            if self.encoding == "base85":
+                encoded = base64.a85encode(serialized).decode("utf-8")
+            elif self.encoding == "base64":
+                encoded = base64.b64encode(serialized).decode("utf-8")
+            else:
+                raise ValueError(f"Unsupported encoding: {self.encoding}")
+            return encoded, ext
         return value, ext
 
     def _maybe_compress_recursive(self, value):
