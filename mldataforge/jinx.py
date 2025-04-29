@@ -268,9 +268,7 @@ class JinxShardReader:
         footer_offset = int(lines[-1].decode("utf-8"))
         self.file.seek(footer_offset)
 
-        print(f"header_offset: {footer_offset}")
         header_line = self.file.readline().decode("utf-8")
-        print(f"header_line: {header_line}")
         self.header = orjson.loads(header_line)
 
         if "index" in self.header:
