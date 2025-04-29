@@ -79,11 +79,17 @@ class JinxShardReader:
                     return base_key, np.load(io.BytesIO(decoded), allow_pickle=False)
                 except Exception as e:
                     raise ValueError(f"Failed to load .npy array for key '{key}': {e}")
-            elif ext == "bytes":
+            elif ext == "raw":
                 try:
                     return base_key, decoded
                 except Exception as e:
                     raise ValueError(f"Failed to load binary for key '{key}': {e}")
+            elif ext == "np":
+                try:
+                    dtype_str, data = decoded.split(b"\x00", 1)
+                    return base_key, np.frombuffer(data, dtype=dtype_str.decode("ascii"))[0]
+                except Exception as e:
+                    raise ValueError(f"Failed to load .np array for key '{key}': {e}")
             elif ext in {"zst", "bz2", "lz4", "lzma", "snappy", "xz", "gz", "br"}:
                 try:
                     decoded = decompress_data(decoded, ext)

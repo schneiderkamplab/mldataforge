@@ -130,10 +130,8 @@ def get_max_index(number, mds_directories, split='.'):
 
 def _ensure_jinx_encoding(value):
     """Ensure that the value is JSON serializable."""
-    if isinstance(value, (bytes, str, int, float, bool, type(None), np.ndarray)):
+    if isinstance(value, (bytes, str, int, float, np.generic, bool, type(None), np.ndarray)):
         return value
-    if isinstance(value, np.generic):
-        return value.item()
     if isinstance(value, list):
         return [_ensure_jinx_encoding(item) for item in value]
     if isinstance(value, dict):

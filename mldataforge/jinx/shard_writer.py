@@ -35,7 +35,7 @@ class JinxShardWriter:
         self.num_offsets = 0
 
     def _maybe_compress(self, value):
-        always = isinstance(value, (bytes, np.ndarray))
+        always = isinstance(value, (bytes, np.ndarray, np.generic))
         if self.compression is None and not always:
             return value, None
         ext = None
@@ -47,7 +47,10 @@ class JinxShardWriter:
             ext = "npy"
         elif isinstance(value, bytes):
             serialized = value
-            ext = "bytes"
+            ext = "raw"
+        elif isinstance(value, np.generic):
+            serialized = str(value.dtype).encode("ascii")+b"\x00"+np.array(value).tobytes()
+            ext = "np"
         else:
             serialized = orjson.dumps(value)
         if not always and len(serialized) < self.compress_threshold:
