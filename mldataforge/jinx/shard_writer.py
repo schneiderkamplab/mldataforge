@@ -19,7 +19,7 @@ class JinxShardWriter:
         compress_ratio=0.67,
         compression="zst",
         index_compression="zst",
-        binary_threshold=2**8,
+        binary_threshold=None,
     ):
         self.path = Path(path)
         self.encoding = encoding

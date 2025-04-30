@@ -5,7 +5,10 @@ from .mds import MDS_READERS
 
 __all__ = [
     "batch_size_option",
+    "binary_threshold_option",
     "buf_size_option",
+    "compress_threshold_option",
+    "compress_ratio_option",
     "compression_args_option",
     "compression_option",
     "every_option",
@@ -36,6 +39,17 @@ def batch_size_option(default=2**16):
         help=f"Batch size for loading data and writing files (default: {default}).",
     )
 
+def binary_threshold_option(default=None):
+    """
+    Option for specifying the binary threshold.
+    """
+    return click.option(
+        "--binary-threshold",
+        default=default,
+        type=int,
+        help=f"Binary threshold for compression (default: {default}).",
+    )
+
 def buf_size_option(default=2**24):
     """
     Option for specifying the buffer size.
@@ -44,6 +58,28 @@ def buf_size_option(default=2**24):
         "--buf-size",
         default=default,
         help=f"Buffer size for pigz compression (default: {default}).",
+    )
+
+def compress_threshold_option(default=2**6):
+    """
+    Option for specifying the compression threshold under which to not compress.
+    """
+    return click.option(
+        "--compress-threshold",
+        default=default,
+        type=int,
+        help=f"Compression threshold (default: {default}).",
+    )
+
+def compress_ratio_option(default=1.0):
+    """
+    Option for specifying the worst compression ratio allowed.
+    """
+    return click.option(
+        "--compress-ratio",
+        default=default,
+        type=float,
+        help=f"Compression ratio (default: {default}).",
     )
 
 def compression_args_option(default={"processes": 64}):

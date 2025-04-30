@@ -24,9 +24,12 @@ def split():
 @shuffle_option()
 @index_option()
 @sort_key_option()
+@compress_threshold_option()
+@compress_ratio_option()
+@binary_threshold_option()
 def jinx(*args, **kwargs):
     split_jinx(*args, **kwargs)
-def split_jinx(jinx_paths, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, shard_size, trafo, shuffle, index, sort_key):
+def split_jinx(jinx_paths, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, shard_size, trafo, shuffle, index, sort_key, compress_threshold, compress_ratio, binary_threshold):
     save_jinx(
         load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key),
         output_file=f"{output_dir}/{prefix}{{part:04d}}.jinx",
@@ -37,6 +40,9 @@ def split_jinx(jinx_paths, prefix, output_dir, size_hint, compression, compressi
         overwrite=overwrite,
         yes=yes,
         trafo=trafo,
+        compress_threshold=compress_threshold,
+        compress_ratio=compress_ratio,
+        binary_threshold=binary_threshold,
     )
 
 @split.command()

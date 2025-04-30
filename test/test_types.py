@@ -27,6 +27,9 @@ def test_types(fmt, data, output_path, tmp_dir, request):
             overwrite=True,
             yes=True,
             trafo=None,
+            compress_threshold=2**6,
+            compress_ratio=1.0,
+            binary_threshold=2**8,
         )
         for sample in load_jinx_paths(
             [output_path],

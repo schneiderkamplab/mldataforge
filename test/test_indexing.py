@@ -80,6 +80,9 @@ def test_shuffling(fmt,seed, index, out_file, in_file, tmp_dir, scale_factor):
             shuffle=seed,
             index=index,
             sort_key=None,
+            compress_threshold=2**6,
+            compress_ratio=1.0,
+            binary_threshold=None,
         )
         if seed is None or seed < 0:
             assert filecmp.cmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.jinx"), shallow=False), f"Files {out_file} and test.jsonl.jinx are different"
@@ -139,6 +142,9 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
                 overwrite=True,
                 yes=True,
                 trafo=None,
+                compress_threshold=2**6,
+                compress_ratio=1.0,
+                binary_threshold=2**8,
             )
         elif fmt == "mds":
             save_mds(
@@ -169,6 +175,9 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
             shuffle=None,
             index=None,
             sort_key=sort_key,
+            compress_threshold=2**6,
+            compress_ratio=1.0,
+            binary_threshold=2**8,
         )
         join_jinx(
             output_file=resorted_file,
@@ -182,6 +191,9 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
             shuffle=None,
             index=None,
             sort_key=sort_key,
+            compress_threshold=2**6,
+            compress_ratio=1.0,
+            binary_threshold=2**8,
         )
         assert filecmp.cmp(sorted_file, resorted_file, shallow=False), f"Files {sorted_file} and {resorted_file} are different"
     elif fmt == "mds":

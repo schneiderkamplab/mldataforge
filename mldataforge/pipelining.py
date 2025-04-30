@@ -168,6 +168,9 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
             overwrite=sink.get("overwrite", defaults.get("overwrite", False)),
             yes=sink.get("yes", defaults.get("yes", False)),
             trafo=trafo,
+            compress_threshold=sink.get("compress_threshold", defaults.get("compress_threshold", 2**6)),
+            compress_ratio=sink.get("compress_ratio", defaults.get("compress_ratio", 1.0)),
+            binary_threshold=sink.get("binary_threshold", defaults.get("binary_threshold", 2**8)),
         )
     elif fmt == "jsonl":
         path = sink["path"]
