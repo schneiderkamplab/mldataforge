@@ -115,15 +115,21 @@ def test_shuffling(fmt,seed, index, out_file, in_file, tmp_dir, scale_factor):
         assert len(dircmp.right_only) == 0, f"Right only files: {dircmp.right_only}"
         assert len(dircmp.funny_files) == 0, f"Funny files: {dircmp.funny_files}"        
 
-@pytest.mark.parametrize("fmt,sort_key,input_directory", [
-    pytest.param("jinx", "def key(sample): return sample['id']", "test.tokenized.jinx", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_jinx"], scope="session")),
-    pytest.param("jinx", "def key(sample): return len(sample['input_ids'])", "test.tokenized.jinx", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_jinx"], scope="session")),
-    ("jinx", "def key(sample): return sample['id']", None),
-    pytest.param("mds", "def key(sample): return sample['id']", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
-    pytest.param("mds", "def key(sample): return len(sample['input_ids'])", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
-    ("mds", "def key(sample): return sample['id']", None),
+@pytest.mark.parametrize("fmt,param,sort_key,input_directory", [
+    pytest.param("jinx", None, "def key(sample): return sample['id']", "test.tokenized.jinx", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_jinx"], scope="session")),
+    pytest.param("jinx", None, "def key(sample): return len(sample['input_ids'])", "test.tokenized.jinx", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_jinx"], scope="session")),
+    ("jinx", None, "def key(sample): return sample['id']", None),
+    pytest.param("jinx", "snappy", "def key(sample): return sample['id']", "test.tokenized.jinx", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_jinx"], scope="session")),
+    pytest.param("jinx", "snappy", "def key(sample): return len(sample['input_ids'])", "test.tokenized.jinx", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_jinx"], scope="session")),
+    ("jinx", "snappy", "def key(sample): return sample['id']", None),
+    pytest.param("mds", "ram", "def key(sample): return sample['id']", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
+    pytest.param("mds", "ram", "def key(sample): return len(sample['input_ids'])", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
+    ("mds", "ram", "def key(sample): return sample['id']", None),
+    pytest.param("mds", "streaming", "def key(sample): return sample['id']", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
+    pytest.param("mds", "streaming", "def key(sample): return len(sample['input_ids'])", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
+    ("mds", "streaming", "def key(sample): return sample['id']", None),
 ])
-def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
+def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request):
     if input_directory is None:
         num_indices = request.config.getoption("--indices")
         def id_iterator(it):
@@ -135,7 +141,7 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
             save_jinx(
                 id_iterator(indices),
                 str(tmp_dir / input_directory),
-                compression="snappy",
+                compression=param,
                 compression_args={"processes": 64},
                 shard_size=2**18,
                 size_hint=None,
@@ -166,7 +172,7 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
         join_jinx(
             output_file=sorted_file,
             jinx_paths=[str(tmp_dir / input_directory)],
-            compression="snappy",
+            compression=param,
             compression_args={"processes": 64},
             overwrite=True,
             yes=True,
@@ -182,7 +188,7 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
         join_jinx(
             output_file=resorted_file,
             jinx_paths=[sorted_file],
-            compression="snappy",
+            compression=param,
             compression_args={"processes": 64},
             overwrite=True,
             yes=True,
@@ -206,7 +212,7 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
             yes=True,
             batch_size=2**10,
             buf_size=2**14,
-            reader="ram",
+            reader=param,
             shard_size=2**26,
             no_pigz=True,
             trafo=None,
@@ -223,7 +229,7 @@ def test_sorting(fmt, sort_key, input_directory, tmp_dir, request):
             yes=True,
             batch_size=2**10,
             buf_size=2**14,
-            reader="ram",
+            reader=param,
             shard_size=2**26,
             no_pigz=True,
             trafo=None,
