@@ -34,7 +34,7 @@ __all__ = [
 ]
 
 JINX_COMPRESSIONS = dict(
-    default="zstd",
+    default=None,
     choices=["none", "brotli", "bz2", "gzip", "lz4", "lzma", "pigz", "snappy", "xz", "zstd"],
 )
 JSONL_COMPRESSIONS = dict(

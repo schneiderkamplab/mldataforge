@@ -71,7 +71,7 @@ def test_shuffling(fmt,seed, index, out_file, in_file, tmp_dir, scale_factor):
         join_jinx(
             output_file=str(tmp_dir / out_file),
             jinx_paths=[str(tmp_dir / in_file)],
-            compression="zstd",
+            compression=None,
             compression_args={"processes": 64},
             overwrite=True,
             yes=True,
