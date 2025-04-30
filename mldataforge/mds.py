@@ -2,6 +2,7 @@ import bisect
 from copy import deepcopy
 from datasets import Dataset
 import json
+import mmap
 import numpy as np
 import os
 import shutil
@@ -191,14 +192,14 @@ class MDSRAMReader:
                         break
                     f_out.write(buf)
             filename = self.uncompressed_filename
-        self.fp = open(filename, "rb")
-        self.samples = np.frombuffer(self.fp.read(4), np.uint32)[0]
-        self.index = np.frombuffer(self.fp.read((1+self.samples)*4), np.uint32)
-        info = json.loads(self.fp.read(self.index[0]-self.fp.tell()))
+        self._fp = open(filename, "rb", 0)
+        self.map = mmap.mmap(self._fp.fileno(), 0, access=mmap.ACCESS_READ)
+        self.samples = np.ndarray(shape=(1,), dtype=np.uint32, buffer=self.map, offset=0)[0]
+        self.index = np.ndarray(shape=(1+self.samples,), dtype=np.uint32, buffer=self.map, offset=4)
+        info = json.loads(self.map[4 + (1+self.samples) * 4:self.index[0]].decode("utf-8"))
         self.column_encodings = info["column_encodings"]
         self.column_names = info["column_names"]
         self.column_sizes = info["column_sizes"]
-        assert self.fp.tell() == self.index[0]
 
     def decode_sample(self, data: bytes) -> dict[str, Any]:
         sizes = []
@@ -219,8 +220,7 @@ class MDSRAMReader:
 
     def get_sample_data(self, idx: int) -> bytes:
         begin, end = self.index[idx:idx+2]
-        self.fp.seek(begin)
-        data = self.fp.read(end - begin)
+        data = self.map[begin:end]
         return data
 
     def get_item(self, idx: int) -> dict[str, Any]:
@@ -245,7 +245,7 @@ class MDSRAMReader:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        self.fp.close()
+        self._fp.close()
         if self.uncompressed_filename is not None:
             os.remove(self.uncompressed_filename)
 
