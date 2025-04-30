@@ -15,10 +15,10 @@ class JinxShardWriter:
         self,
         path: str,
         encoding="base85",
-        compress_threshold=2**7,
-        compress_ratio=0.67,
-        compression="zst",
-        index_compression="zst",
+        compress_threshold=2**6,
+        compress_ratio=1.0,
+        compression=None,
+        index_compression=None,
         binary_threshold=None,
     ):
         self.path = Path(path)
