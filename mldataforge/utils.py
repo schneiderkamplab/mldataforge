@@ -361,7 +361,7 @@ def save_jinx(iterable, output_file, compression=None, compression_args={"proces
         if writer is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
-            writer = JinxDatasetWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, encoding="base85", compress_threshold=compress_threshold, compress_ratio=compress_ratio, binary_threshold=binary_threshold)      
+            writer = JinxDatasetWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, compress_threshold=compress_threshold, compress_ratio=compress_ratio, binary_threshold=binary_threshold)
             offset = 0
         prev = writer.tell()
         writer.write(sample)

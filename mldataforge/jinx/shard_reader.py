@@ -55,7 +55,6 @@ class JinxShardReader:
                     raise ValueError(f"Unsupported compression type: {ext}")
         if split is not None and "split" in self.header and split != self.header["split"]:
             self.num_samples = 0
-        self.encoding = self.header.get("encoding", "base85")
 
     def __len__(self):
         return self.num_samples
@@ -82,7 +81,7 @@ class JinxShardReader:
             self.bin.seek(offset)
             decoded = self.bin.read(length)
             extensions.pop()
-        else:
+        elif isinstance(value, str):
             try:
                 decoded = base64.a85decode(value.encode("ascii"), foldspaces=True)
             except Exception as e:
@@ -104,11 +103,22 @@ class JinxShardReader:
                     return base_key, np.frombuffer(data, dtype=dtype_str.decode("ascii"))[0]
                 except Exception as e:
                     raise ValueError(f"Failed to load .np array for key '{key}': {e}")
+            elif ext == "str":
+                try:
+                    return base_key, decoded.decode("utf-8")
+                except Exception as e:
+                    raise ValueError(f"Failed to decode string for key '{key}': {e}")
             elif ext in {"zst", "bz2", "lz4", "lzma", "snappy", "xz", "gz", "br"}:
                 try:
                     decoded = decompress_data(decoded, ext)
                 except Exception as e:
                     raise ValueError(f"Failed to decompress with '{ext}' for key '{key}': {e}")
+            elif ext in {"int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64"}:
+                try:
+                    decoded = np.dtype(ext).type(value)
+                    return base_key, decoded
+                except Exception as e:
+                    raise ValueError(f"Failed to convert to {ext} for key '{key}': {e}")
             else:
                 break
         try:
@@ -131,6 +141,8 @@ class JinxShardReader:
     def __iter__(self):
         original_pos = self.file.tell()
         try:
+            if self.offsets[0] > os.path.getsize(self.path):
+                raise ValueError(f"Offset {self.offsets[0]} is larger than file size {os.path.getsize(self.path)}")
             self.file.seek(self.offsets[0])
             for _ in range(self.num_samples):
                 line = self.file.readline()

@@ -1,4 +1,3 @@
-import base64
 import struct
 
 __all__ = ["decode_base85_stream_to_file"]

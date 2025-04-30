@@ -14,7 +14,6 @@ class JinxShardWriter:
     def __init__(
         self,
         path: str,
-        encoding="base85",
         compress_threshold=2**6,
         compress_ratio=1.0,
         compression=None,
@@ -22,7 +21,6 @@ class JinxShardWriter:
         binary_threshold=None,
     ):
         self.path = Path(path)
-        self.encoding = encoding
         self.compress_threshold = compress_threshold
         self.compress_ratio = compress_ratio
         self.compression = compression
@@ -37,83 +35,122 @@ class JinxShardWriter:
         self.num_offsets = 0
         self.bin = None
 
-    def _maybe_compress(self, value, header=False):
-        always = isinstance(value, (bytes, np.ndarray, np.generic))
-        if self.compression is None and not always and not (isinstance(value, str) and self.binary_threshold and len(value) >= self.binary_threshold):
+    def _maybe_compress(self, value):
+        if isinstance(value, (int, float, bool, type(None))):
             return value, None
-        ext = None
-        if isinstance(value, np.ndarray):
-            if header:
-                serialized = value.tobytes()
-            else:
-                buf = io.BytesIO()
-                np.save(buf, value, allow_pickle=False)
-                buf.seek(0)
-                serialized = buf.read()
-            ext = "npy"
-        elif isinstance(value, bytes):
-            serialized = value
-            ext = "raw"
-        elif isinstance(value, np.generic):
-            serialized = str(value.dtype).encode("ascii")+b"\x00"+np.array(value).tobytes()
-            ext = "np"
+        if isinstance(value, str):
+            short_limit = min(
+                self.compress_threshold,
+                self.binary_threshold if self.binary_threshold is not None else float("inf")
+            )
+            if len(value) < short_limit:
+                return value, None
+
+            # Encode only here, if string is long enough
+            serialized, ext = value.encode("utf-8"), "str"
         else:
-            serialized = orjson.dumps(value)
-        if not always and len(serialized) < self.compress_threshold:
-            return value, ext
-        compressed = compress_data(serialized, self.compression)
-        if len(compressed) <= self.compress_ratio * len(serialized):
-            extensions = [x for x in (ext, self.compression) if x]
-            if self.binary_threshold and len(compressed) > self.binary_threshold:
-                if not self.bin:
-                    self.bin = open(self.path.with_suffix(".bin"), "wb")
-                offset = self.bin.tell()
-                if header:
-                    compressed = serialized
-                self.bin.write(compressed)
-                extensions.append("bin")
-                encoded = {"offset": offset, "length": len(compressed)}
-                ext = ".".join(extensions)
-            elif self.encoding == "base85":
-                encoded = base64.a85encode(compressed).decode("utf-8")
-            elif self.encoding == "base64":
-                encoded = base64.b64encode(compressed).decode("utf-8")
-            else:
-                raise ValueError(f"Unsupported encoding: {self.encoding}")
-            return encoded, ".".join(extensions)
-        elif always or (self.binary_threshold and len(serialized) > self.binary_threshold):
-            extensions = [x for x in (ext,) if x]
-            if self.binary_threshold and len(serialized) > self.binary_threshold:
-                if not self.bin:
-                    self.bin = open(self.path.with_suffix(".bin"), "wb")
-                offset = self.bin.tell()
-                self.bin.write(serialized)
-                extensions.append("bin")
-                encoded = {"offset": offset, "length": len(serialized)}
-                ext = ".".join(extensions)
-            elif self.encoding == "base85":
-                encoded = base64.a85encode(serialized).decode("utf-8")
-            elif self.encoding == "base64":
-                encoded = base64.b64encode(serialized).decode("utf-8")
-            else:
-                raise ValueError(f"Unsupported encoding: {self.encoding}")
-            return encoded, ext
-        return value, ext
+            serialized, ext = self._serialize(value)
+        return self._handle_bytes(serialized, ext)
+
+
+    def _serialize(self, value):
+        if isinstance(value, np.ndarray):
+            buf = io.BytesIO()
+            np.save(buf, value, allow_pickle=False)
+            return buf.getvalue(), "npy"
+
+        elif isinstance(value, bytes):
+            return value, "raw"
+
+        elif isinstance(value, np.generic):
+            return value.item(), str(value.dtype)
+
+        else:
+            return orjson.dumps(value), None
+
+
+    def _handle_bytes(self, data, ext):
+        # Scalars from np.generic are already native
+        if isinstance(data, (int, float, bool, str, type(None))):
+            return data, ext
+
+        should_sidecar = self.binary_threshold is not None and len(data) > self.binary_threshold
+
+        # Try compression if enabled, large enough, and not going to sidecar
+        if not should_sidecar and self.compression is not None and len(data) >= self.compress_threshold:
+            compressed = compress_data(data, self.compression)
+            if len(compressed) <= self.compress_ratio * len(data):
+                return self._store_data(compressed, ext, compressed=True)
+
+        return self._store_data(data, ext, compressed=False)
+
+
+    def _store_data(self, data, ext, compressed):
+        extensions = [ext, self.compression] if compressed else [ext]
+        extensions = [e for e in extensions if e]
+
+        if extensions == ["str"]:
+            # Handle string separately to avoid double-encoding
+            return data.decode("utf-8"), None
+
+        # Sidecar: store large binary data in .bin file
+        if self.binary_threshold is not None and len(data) > self.binary_threshold:
+            if not self.bin:
+                self.bin = open(self.path.with_suffix(".bin"), "wb")
+            offset = self.bin.tell()
+            self.bin.write(data)
+            extensions.append("bin")
+            return {"offset": offset, "length": len(data)}, ".".join(extensions)
+
+        # Encode bytes into baseXX for JSON embedding
+        if isinstance(data, bytes):
+            return self._encode_bytes(data), ".".join(extensions)
+
+        return data, ".".join(extensions) if extensions else None
+
+
+    def _encode_bytes(self, data):
+        return base64.a85encode(data).decode("utf-8")
 
     def _maybe_compress_recursive(self, value):
         if isinstance(value, dict):
             new_dict = {}
-            for k, v in value.items():
-                compressed_value, compression_type = self._maybe_compress_recursive(v)
-                if compression_type:
-                    k = f"{k}.{compression_type}"
-                new_dict[k] = compressed_value
+            for key, val in value.items():
+                compressed_val, ext = self._maybe_compress_recursive(val)
+                if ext:
+                    key = f"{key}.{ext}"
+                new_dict[key] = compressed_val
             return new_dict, None
+
         elif isinstance(value, list):
-            return [self._maybe_compress_recursive(v)[0] for v in value], None
+            compressed_list = []
+            for item in value:
+                compressed_item, _ = self._maybe_compress_recursive(item)
+                compressed_list.append(compressed_item)
+            return compressed_list, None
+
         else:
-            compressed_value, compression_type = self._maybe_compress(value)
-            return compressed_value, compression_type
+            return self._maybe_compress(value)
+
+    def _prepare_index(self, array: np.ndarray):
+        assert isinstance(array, np.ndarray) and array.dtype == np.uint64, "Index must be a NumPy array with dtype=uint64"
+        data = array.tobytes()
+        if self.binary_threshold is not None and len(data) > self.binary_threshold:
+            if not self.bin:
+                self.bin = open(self.path.with_suffix(".bin"), "wb")
+            offset = self.bin.tell()
+            self.bin.write(data)
+            return {"offset": offset, "length": len(data)}, "npy.bin"
+        if (
+            self.index_compression is not None
+            and len(data) >= self.compress_threshold
+        ):
+            compressed = compress_data(data, self.index_compression)
+            if len(compressed) <= self.compress_ratio * len(data):
+                data = compressed
+                return self._encode_bytes(data), f"npy.{self.index_compression}"
+        return self._encode_bytes(data), "npy"
+
 
     def write_sample(self, sample: dict):
         compressed_sample, _ = self._maybe_compress_recursive(sample)
@@ -129,12 +166,11 @@ class JinxShardWriter:
         self.offsets_file.close()
         with open(self.offsets_tmp_path, "rb") as f:
             offsets = np.fromfile(f, dtype=np.uint64)
-        index, ext = self._maybe_compress(offsets, header=True)
+        index, ext = self._prepare_index(offsets)
         index_key = f"index.{ext}"
         header_offset = self.current_offset
         header = {
             index_key: index,
-            "encoding": self.encoding,
             "num_samples": self.num_offsets,
             "shard_id": shard_id,
             "version": "1.0",

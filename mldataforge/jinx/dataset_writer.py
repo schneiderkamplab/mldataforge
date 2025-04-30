@@ -17,7 +17,6 @@ class JinxDatasetWriter:
         append=False,
         compression="zst",
         index_compression="zst",
-        encoding="base85",
         compress_threshold=128,
         compress_ratio=0.67,
         binary_threshold=None,
@@ -28,7 +27,6 @@ class JinxDatasetWriter:
         self.append = append
         self.compression = compression
         self.index_compression = index_compression
-        self.encoding = encoding
         self.compress_threshold = compress_threshold
         self.compress_ratio = compress_ratio
         self.binary_threshold = binary_threshold
@@ -48,7 +46,6 @@ class JinxDatasetWriter:
     def _open_writer(self):
         self.current_writer = JinxShardWriter(
             path=self.current_path,
-            encoding=self.encoding,
             compress_threshold=self.compress_threshold,
             compress_ratio=self.compress_ratio,
             compression=self.compression,
