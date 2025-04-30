@@ -51,6 +51,7 @@ class JinxDatasetWriter:
             compress_ratio=self.compress_ratio,
             compression=self.compression,
             index_compression=self.index_compression,
+            binary_threshold=None,
         )
 
     def _new_shard(self):

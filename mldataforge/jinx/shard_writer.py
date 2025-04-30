@@ -39,7 +39,7 @@ class JinxShardWriter:
 
     def _maybe_compress(self, value, header=False):
         always = isinstance(value, (bytes, np.ndarray, np.generic))
-        if self.compression is None and not always and not (isinstance(value, str) and len(value) >= self.binary_threshold):
+        if self.compression is None and not always and not (isinstance(value, str) and self.binary_threshold and len(value) >= self.binary_threshold):
             return value, None
         ext = None
         if isinstance(value, np.ndarray):
@@ -64,7 +64,7 @@ class JinxShardWriter:
         compressed = compress_data(serialized, self.compression)
         if len(compressed) <= self.compress_ratio * len(serialized):
             extensions = [x for x in (ext, self.compression) if x]
-            if len(compressed) > self.binary_threshold:
+            if self.binary_threshold and len(compressed) > self.binary_threshold:
                 if not self.bin:
                     self.bin = open(self.path.with_suffix(".bin"), "wb")
                 offset = self.bin.tell()
@@ -81,9 +81,9 @@ class JinxShardWriter:
             else:
                 raise ValueError(f"Unsupported encoding: {self.encoding}")
             return encoded, ".".join(extensions)
-        elif always or len(serialized) > self.binary_threshold:
+        elif always or (self.binary_threshold and len(serialized) > self.binary_threshold):
             extensions = [x for x in (ext,) if x]
-            if len(serialized) > self.binary_threshold:
+            if self.binary_threshold and len(serialized) > self.binary_threshold:
                 if not self.bin:
                     self.bin = open(self.path.with_suffix(".bin"), "wb")
                 offset = self.bin.tell()
