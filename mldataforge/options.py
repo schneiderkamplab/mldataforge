@@ -168,6 +168,7 @@ def shard_size_option(default=2**26):
     return click.option(
         "--shard-size",
         default=default,
+        type=int,
         help=f"Shard size for the dataset (default: {default}).",
     )
 

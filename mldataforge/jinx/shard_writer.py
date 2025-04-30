@@ -15,10 +15,11 @@ class JinxShardWriter:
         self,
         path: str,
         encoding="base85",
-        compress_threshold=128,
+        compress_threshold=2**7,
         compress_ratio=0.67,
         compression="zst",
-        index_compression="zst"
+        index_compression="zst",
+        binary_threshold=2**8,
     ):
         self.path = Path(path)
         self.encoding = encoding
@@ -26,6 +27,7 @@ class JinxShardWriter:
         self.compress_ratio = compress_ratio
         self.compression = compression
         self.index_compression = index_compression
+        self.binary_threshold = binary_threshold
         self.file = self.path.open("wb")
         self.current_offset = 0
         tmp_file = tempfile.NamedTemporaryFile(delete=False)
@@ -33,17 +35,21 @@ class JinxShardWriter:
         tmp_file.close()
         self.offsets_file = open(self.offsets_tmp_path, "wb")
         self.num_offsets = 0
+        self.bin = None
 
-    def _maybe_compress(self, value):
+    def _maybe_compress(self, value, header=False):
         always = isinstance(value, (bytes, np.ndarray, np.generic))
-        if self.compression is None and not always:
+        if self.compression is None and not always and not (isinstance(value, str) and len(value) >= self.binary_threshold):
             return value, None
         ext = None
         if isinstance(value, np.ndarray):
-            buf = io.BytesIO()
-            np.save(buf, value, allow_pickle=False)
-            buf.seek(0)
-            serialized = buf.read()
+            if header:
+                serialized = value.tobytes()
+            else:
+                buf = io.BytesIO()
+                np.save(buf, value, allow_pickle=False)
+                buf.seek(0)
+                serialized = buf.read()
             ext = "npy"
         elif isinstance(value, bytes):
             serialized = value
@@ -57,15 +63,35 @@ class JinxShardWriter:
             return value, ext
         compressed = compress_data(serialized, self.compression)
         if len(compressed) <= self.compress_ratio * len(serialized):
-            if self.encoding == "base85":
+            extensions = [x for x in (ext, self.compression) if x]
+            if len(compressed) > self.binary_threshold:
+                if not self.bin:
+                    self.bin = open(self.path.with_suffix(".bin"), "wb")
+                offset = self.bin.tell()
+                if header:
+                    compressed = serialized
+                self.bin.write(compressed)
+                extensions.append("bin")
+                encoded = {"offset": offset, "length": len(compressed)}
+                ext = ".".join(extensions)
+            elif self.encoding == "base85":
                 encoded = base64.a85encode(compressed).decode("utf-8")
             elif self.encoding == "base64":
                 encoded = base64.b64encode(compressed).decode("utf-8")
             else:
                 raise ValueError(f"Unsupported encoding: {self.encoding}")
-            return encoded, ".".join(x for x in (ext, self.compression) if x)
-        elif always:
-            if self.encoding == "base85":
+            return encoded, ".".join(extensions)
+        elif always or len(serialized) > self.binary_threshold:
+            extensions = [x for x in (ext,) if x]
+            if len(serialized) > self.binary_threshold:
+                if not self.bin:
+                    self.bin = open(self.path.with_suffix(".bin"), "wb")
+                offset = self.bin.tell()
+                self.bin.write(serialized)
+                extensions.append("bin")
+                encoded = {"offset": offset, "length": len(serialized)}
+                ext = ".".join(extensions)
+            elif self.encoding == "base85":
                 encoded = base64.a85encode(serialized).decode("utf-8")
             elif self.encoding == "base64":
                 encoded = base64.b64encode(serialized).decode("utf-8")
@@ -103,7 +129,7 @@ class JinxShardWriter:
         self.offsets_file.close()
         with open(self.offsets_tmp_path, "rb") as f:
             offsets = np.fromfile(f, dtype=np.uint64)
-        index, ext = self._maybe_compress(offsets)
+        index, ext = self._maybe_compress(offsets, header=True)
         index_key = f"index.{ext}"
         header_offset = self.current_offset
         header = {
@@ -128,6 +154,8 @@ class JinxShardWriter:
         self.file.write(f"\n{header_offset}\n".encode("utf-8"))
         self.file.close()
         os.remove(self.offsets_tmp_path)
+        if self.bin:
+            self.bin.close()
 
     def __enter__(self):
         return self
