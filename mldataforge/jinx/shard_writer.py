@@ -202,7 +202,7 @@ class JinxShardWriter:
     def tell(self):
         return self.current_offset
 
-class JinxShardWriter:
+class JinxMMapShardWriter:
     def __init__(
         self,
         path: str,
