@@ -16,8 +16,8 @@ class JinxShardReader:
         self.path = Path(path)
         self.file = self.path.open("rb")
         self.bin_path = self.path.with_suffix(".bin")
+        self.bin = None
         self._load_footer(split=split)
-        self.bin = open(self.bin_path, "rb") if self.bin_path.exists() else None
 
     def _load_footer(self, split=None):
         self.file.seek(-64, os.SEEK_END)
@@ -76,8 +76,8 @@ class JinxShardReader:
             return key, value
         parts = key.split(".")
         base_key, extensions = parts[0], parts[1:]
-        decoded, remaining_extensions = self._load_bytes(key, value, extensions)
-        decoded_value = self._unserialize(key, decoded, remaining_extensions, original_value=value)
+        decoded, extensions = self._load_bytes(key, value, extensions)
+        decoded_value = self._unserialize(key, decoded, extensions, original_value=value)
         return base_key, decoded_value
 
     def _unserialize(self, key, decoded, extensions, original_value=None):
@@ -123,22 +123,21 @@ class JinxShardReader:
             raise ValueError(f"Failed to decode final JSON for key '{key}': {e}")
 
     def _load_bytes(self, key, value, extensions):
-        exts = list(extensions)  # make a copy we can modify
-        if exts[-1] == "bin":
+        if extensions[-1] == "bin":
             if not isinstance(value, dict) or "offset" not in value:
                 raise ValueError(f"Expected offset dict for '.bin' extension in key '{key}'")
             offset, length = value["offset"], value["length"]
+            if not self.bin:
+                self.bin = open(self.bin_path, "rb")
             self.bin.seek(offset)
-            decoded = self.bin.read(length)
-            exts.pop()  # remove "bin" from extension list
+            value = self.bin.read(length)
+            extensions.pop()
         elif isinstance(value, str):
             try:
-                decoded = base64.a85decode(value.encode("ascii"), foldspaces=True)
+                value = base64.a85decode(value.encode("ascii"), foldspaces=True)
             except Exception as e:
                 raise ValueError(f"Failed to decode base85 for key '{key}': {e}")
-        else:
-            return value, exts
-        return decoded, exts
+        return value, extensions
 
     def _load_sample(self, value):
         if isinstance(value, dict):
