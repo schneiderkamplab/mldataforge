@@ -66,9 +66,9 @@ class JinxShardReader:
         self.file.seek(offset)
         line = self.file.readline().decode("utf-8")
         sample = orjson.loads(line)
-        return self._decompress_sample(sample)
+        return self._load_sample(sample)
 
-    def _maybe_decompress_field(self, key, value):
+    def _load_value(self, key, value):
         if "." not in key:
             return key, value
         parts = key.split(".")
@@ -126,15 +126,15 @@ class JinxShardReader:
         except Exception as e:
             raise ValueError(f"Failed to decode JSON for key '{key}': {e}")
 
-    def _decompress_sample(self, value):
+    def _load_sample(self, value):
         if isinstance(value, dict):
             result = {}
             for k, v in value.items():
-                new_key, new_value = self._maybe_decompress_field(k, self._decompress_sample(v))
+                new_key, new_value = self._load_value(k, self._load?sample(v))
                 result[new_key] = new_value
             return result
         elif isinstance(value, list):
-            return [self._decompress_sample(v) for v in value]
+            return [self._load_sample(v) for v in value]
         else:
             return value
 
@@ -149,7 +149,7 @@ class JinxShardReader:
                 if not line:
                     break
                 sample = orjson.loads(line)
-                yield self._decompress_sample(sample)
+                yield self._load_sample(sample)
         finally:
             self.file.seek(original_pos)
 

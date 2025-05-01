@@ -35,7 +35,7 @@ class JinxShardWriter:
         self.num_offsets = 0
         self.bin = None
 
-    def _maybe_compress(self, value):
+    def _prepare_value(self, value):
         if isinstance(value, (int, float, bool, type(None))):
             return value, None
         if isinstance(value, str):
@@ -112,11 +112,11 @@ class JinxShardWriter:
     def _encode_bytes(self, data):
         return base64.a85encode(data).decode("utf-8")
 
-    def _maybe_compress_recursive(self, value):
+    def _prepare_sample(self, value):
         if isinstance(value, dict):
             new_dict = {}
             for key, val in value.items():
-                compressed_val, ext = self._maybe_compress_recursive(val)
+                compressed_val, ext = self._prepare_sample(val)
                 if ext:
                     key = f"{key}.{ext}"
                 new_dict[key] = compressed_val
@@ -125,12 +125,12 @@ class JinxShardWriter:
         elif isinstance(value, list):
             compressed_list = []
             for item in value:
-                compressed_item, _ = self._maybe_compress_recursive(item)
+                compressed_item, _ = self._prepare_sample(item)
                 compressed_list.append(compressed_item)
             return compressed_list, None
 
         else:
-            return self._maybe_compress(value)
+            return self._prepare_value(value)
 
     def _prepare_index(self, array: np.ndarray):
         assert isinstance(array, np.ndarray) and array.dtype == np.uint64, "Index must be a NumPy array with dtype=uint64"
@@ -153,8 +153,8 @@ class JinxShardWriter:
 
 
     def write_sample(self, sample: dict):
-        compressed_sample, _ = self._maybe_compress_recursive(sample)
-        json_line = orjson.dumps(compressed_sample)
+        prepared_sample, _ = self._prepare_sample(sample)
+        json_line = orjson.dumps(prepared_sample)
         self.offsets_file.write(self.current_offset.to_bytes(8, byteorder='little'))
         self.file.write(json_line)
         self.file.write(b"\n")
