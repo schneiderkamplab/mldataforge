@@ -134,16 +134,16 @@ def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request):
         num_indices = request.config.getoption("--indices")
         def id_iterator(it):
             for i in it:
-                yield {"id": int(i)}
+                yield {"id": int(i), "payload": np.random.randint(0, 2**32, size=2**14, dtype=np.uint64)}
         indices = shuffle_permutation(num_indices, seed=42)
-        input_directory = f"test.{num_indices}.{fmt}"
+        input_directory = f"test.{num_indices}.{param}.{fmt}"
         if fmt == "jinx":
             save_jinx(
                 id_iterator(indices),
                 str(tmp_dir / input_directory),
                 compression=param,
                 compression_args={"processes": 64},
-                shard_size=2**18,
+                shard_size=None,
                 size_hint=None,
                 overwrite=True,
                 yes=True,
@@ -160,7 +160,7 @@ def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request):
                 compression_args={"processes": 64},
                 pigz=False,
                 buf_size=2**14,
-                shard_size=2**18,
+                shard_size=None,
                 size_hint=None,
                 overwrite=True,
                 yes=True,
