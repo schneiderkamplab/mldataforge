@@ -76,20 +76,9 @@ class JinxShardReader:
             return key, value
         parts = key.split(".")
         base_key, extensions = parts[0], parts[1:]
-        scalar = self._load_scalar(key, value, extensions)
-        if scalar is not None:
-            return base_key, scalar
         decoded, remaining_extensions = self._load_bytes(key, value, extensions)
         decoded_value = self._unserialize(key, decoded, remaining_extensions, original_value=value)
         return base_key, decoded_value
-
-    def _load_scalar(self, key, value, extensions):
-        if len(extensions) == 1 and extensions[0] in {"int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64"}:
-            try:
-                return np.dtype(extensions[0]).type(value)
-            except Exception as e:
-                raise ValueError(f"Failed to cast value to {extensions[0]} for key '{key}': {e}")
-        return None
 
     def _unserialize(self, key, decoded, extensions, original_value=None):
         for ext in reversed(extensions):
@@ -148,8 +137,7 @@ class JinxShardReader:
             except Exception as e:
                 raise ValueError(f"Failed to decode base85 for key '{key}': {e}")
         else:
-            # No binary encoding/decoding — native value
-            return value, []
+            return value, exts
         return decoded, exts
 
     def _load_sample(self, value):
