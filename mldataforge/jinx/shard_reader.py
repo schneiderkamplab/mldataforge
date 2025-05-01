@@ -170,7 +170,7 @@ class JinxShardReader:
         self.file.close()
         if hasattr(self, "_index_tmp") and os.path.exists(self._index_tmp):
             os.remove(self._index_tmp)
-        if hasattr(self, "offerts"):
+        if hasattr(self, "offsets"):
             self.offsets.close()
         if self.bin:
             self.bin.close()
