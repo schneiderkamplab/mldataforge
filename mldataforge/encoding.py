@@ -1,8 +1,8 @@
 import struct
 
-__all__ = ["decode_base85_stream_to_file"]
+__all__ = ["decode_a85_stream_to_file"]
 
-def decode_base85_stream_to_file(base85_string, output_file_path):
+def decode_a85_stream_to_file(base85_string, output_file_path):
     packI = struct.Struct('!I').pack
 
     pending = []
