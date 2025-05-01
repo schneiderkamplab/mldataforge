@@ -130,7 +130,7 @@ class JinxShardReader:
         if isinstance(value, dict):
             result = {}
             for k, v in value.items():
-                new_key, new_value = self._load_value(k, self._load?sample(v))
+                new_key, new_value = self._load_value(k, self._load_sample(v))
                 result[new_key] = new_value
             return result
         elif isinstance(value, list):
