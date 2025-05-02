@@ -1,34 +1,34 @@
 import base64
 import io
 import orjson
+import mmap
 import numpy as np
 import os
 import tempfile
 from pathlib import Path
 
-from ..lazy_dict import LazyDict
 from ..compression import decompress_data, decompress_file
 from ..encoding import decode_a85_stream_to_file
 
-__all__ = ["JinxShardReader"]
+__all__ = ["JinxMMapShardReader"]
 
-class JinxShardReader:
-    def __init__(self, path: str, split=None, lazy=True):
+class JinxMMapShardReader:
+    def __init__(self, path: str, split=None):
         self.path = Path(path)
-        self.lazy = lazy
-        self.file = self.path.open("rb")
+        with self.path.open("rb") as f:
+            self.mmap = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
         self.bin_path = self.path.with_suffix(".bin")
         self.bin = None
         self._load_footer(split=split)
 
     def _load_footer(self, split=None):
-        self.file.seek(-64, os.SEEK_END)
-        last_part = self.file.read()
-        lines = last_part.strip().split(b"\n")
-        footer_offset = int(lines[-1].decode("utf-8"))
-        self.file.seek(footer_offset)
-        header_line = self.file.readline().decode("utf-8")
+        offset = self.mmap.size()-2
+        while self.mmap[offset] != ord("\n"):
+            offset -= 1
+        footer_offset = int(self.mmap[offset:].decode("utf-8"))
+        header_line = self.mmap[footer_offset:offset]
         self.header = orjson.loads(header_line)
+
         self.num_samples = self.header["num_samples"]
         if split is not None and self.header.get("split") != split:
             self.num_samples = 0
@@ -65,22 +65,19 @@ class JinxShardReader:
         return self.num_samples
 
     def __getitem__(self, idx):
-        if not (0 <= idx < self.num_samples):
-            raise IndexError(f"Sample index out of range: {idx}")
-        offset = self.offsets[idx]
-        self.file.seek(offset)
-        line = self.file.readline().decode("utf-8")
+        begin, end = self.offsets[idx:idx+2]
+        line = self.mmap[begin:end]
         sample = orjson.loads(line)
         return self._load_sample(sample)
 
-    def _load_value(self, key, value, unserialized=True):
+    def _load_value(self, key, value):
         if "." not in key:
             return key, value
         parts = key.split(".")
-        _, extensions = parts[0], parts[1:]
+        base_key, extensions = parts[0], parts[1:]
         decoded, extensions = self._load_bytes(key, value, extensions)
         decoded_value = self._unserialize(key, decoded, extensions, original_value=value)
-        return decoded_value
+        return base_key, decoded_value
 
     def _unserialize(self, key, decoded, extensions, original_value=None):
         for ext in reversed(extensions):
@@ -126,7 +123,7 @@ class JinxShardReader:
 
     def _load_bytes(self, key, value, extensions):
         if extensions[-1] == "bin":
-            if not isinstance(value, (dict, LazyDict)) or "offset" not in value:
+            if not isinstance(value, dict) or "offset" not in value:
                 raise ValueError(f"Expected offset dict for '.bin' extension in key '{key}'")
             offset, length = value["offset"], value["length"]
             if not self.bin:
@@ -143,34 +140,26 @@ class JinxShardReader:
 
     def _load_sample(self, value):
         if isinstance(value, dict):
-            if self.lazy:
-                return LazyDict(value, self._load_value, lambda k: k.split(".", 1)[0], self)
             result = {}
             for k, v in value.items():
                 new_key, new_value = self._load_value(k, self._load_sample(v))
                 result[new_key] = new_value
             return result
-        if isinstance(value, list):
+        elif isinstance(value, list):
             return [self._load_sample(v) for v in value]
-        return value
+        else:
+            return value
 
     def __iter__(self):
-        original_pos = self.file.tell()
-        try:
-            if self.offsets[0] > os.path.getsize(self.path):
-                raise ValueError(f"Offset {self.offsets[0]} is larger than file size {os.path.getsize(self.path)}")
-            self.file.seek(self.offsets[0])
-            for _ in range(self.num_samples):
-                line = self.file.readline()
-                if not line:
-                    break
-                sample = orjson.loads(line)
-                yield self._load_sample(sample)
-        finally:
-            self.file.seek(original_pos)
+        for i in range(self.num_samples):
+            begin, end = self.offsets[i:i+2]
+            line = self.mmap[begin:end]
+            sample = orjson.loads(line)
+            yield self._load_sample(sample)
 
     def close(self):
-        self.file.close()
+        if hasattr(self, "mmap"):
+            self.mmap.close()
         if hasattr(self, "_index_tmp") and os.path.exists(self._index_tmp):
             os.remove(self._index_tmp)
         if hasattr(self, "offsets"):
