@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from .shard_writer import JinxShardWriter
+from .shard_writer import JinxLazyShardWriter
 
 __all__ = ["JinxDatasetWriter"]
 
@@ -44,7 +44,7 @@ class JinxDatasetWriter:
         self._open_writer()
 
     def _open_writer(self):
-        self.current_writer = JinxShardWriter(
+        self.current_writer = JinxLazyShardWriter(
             path=self.current_path,
             compress_threshold=self.compress_threshold,
             compress_ratio=self.compress_ratio,
