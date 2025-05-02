@@ -404,7 +404,7 @@ class JinxLazyShardReader:
         sample = orjson.loads(line)
         return self._load_sample(sample)
 
-    def _load_value(self, key, value):
+    def _load_value(self, key, value, unserialized=True):
         if "." not in key:
             return key, value
         parts = key.split(".")
@@ -473,7 +473,7 @@ class JinxLazyShardReader:
         return value, extensions
 
     def _load_sample(self, value):
-        return LazyDict(value, self._load_value, lambda k: k.split(".", 1)[0])
+        return LazyDict(value, self._load_value, lambda k: k.split(".", 1)[0], self)
         if isinstance(value, dict):
             result = {}
             for k, v in value.items():

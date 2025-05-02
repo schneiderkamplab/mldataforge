@@ -4,9 +4,10 @@ __all__ = ["LazyDict"]
 
 class LazyDict(MutableMapping):
 
-    def __init__(self, data, transform_fn, key_fn=lambda x: x):
+    def __init__(self, data, transform_fn, key_fn=lambda x: x, context=None):
         self._transform_fn = transform_fn
         self._key_fn = key_fn
+        self.context = context
         self._store = {k: self._wrap_dicts(v) for k, v in data.items()}
 
     def materialize(self):
@@ -51,7 +52,7 @@ class LazyDict(MutableMapping):
 
     def _wrap_dicts(self, obj):
         if isinstance(obj, dict):
-            return LazyDict(obj, self._transform_fn, self._key_fn)
+            return LazyDict(obj, self._transform_fn, self._key_fn, self.context)
         elif isinstance(obj, list):
             return [self._wrap_dicts(item) for item in obj]
         elif isinstance(obj, set):
@@ -80,6 +81,10 @@ class LazyDict(MutableMapping):
     def items(self):
         for key in self:
             yield key, self[key]
+
+    def raw_items(self):
+        for key in self._store:
+            yield key, self._store[key]
 
     def values(self):
         for key in self:

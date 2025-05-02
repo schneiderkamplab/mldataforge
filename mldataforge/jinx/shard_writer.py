@@ -426,7 +426,7 @@ class JinxLazyShardWriter:
             return value, None
         if isinstance(value, str):
             short_limit = min(
-                self.compress_threshold,
+                self.compress_threshold if self.compression is not None else float("inf"),
                 self.binary_threshold if self.binary_threshold is not None else float("inf")
             )
             if len(value) < short_limit:
@@ -460,10 +460,8 @@ class JinxLazyShardWriter:
         if isinstance(data, (int, float, bool, str, type(None))):
             return data, ext
 
-        should_sidecar = self.binary_threshold is not None and len(data) > self.binary_threshold
-
         # Try compression if enabled, large enough, and not going to sidecar
-        if not should_sidecar and self.compression is not None and len(data) >= self.compress_threshold:
+        if self.compression is not None and len(data) >= self.compress_threshold:
             compressed = compress_data(data, self.compression)
             if len(compressed) <= self.compress_ratio * len(data):
                 return self._store_data(compressed, ext, compressed=True)
@@ -475,10 +473,6 @@ class JinxLazyShardWriter:
         extensions = [ext, self.compression] if compressed else [ext]
         extensions = [e for e in extensions if e]
 
-        if extensions == ["str"]:
-            # Handle string separately to avoid double-encoding
-            return data.decode("utf-8"), None
-
         # Sidecar: store large binary data in .bin file
         if self.binary_threshold is not None and len(data) > self.binary_threshold:
             if not self.bin:
@@ -487,6 +481,10 @@ class JinxLazyShardWriter:
             self.bin.write(data)
             extensions.append("bin")
             return {"offset": offset, "length": len(data)}, ".".join(extensions)
+
+        if extensions == ["str"]:
+            # Handle string separately to avoid double-encoding
+            return data.decode("utf-8"), None
 
         # Encode bytes into baseXX for JSON embedding
         if isinstance(data, bytes):
@@ -510,11 +508,50 @@ class JinxLazyShardWriter:
 
         elif isinstance(value, LazyDict):
             new_dict = {}
-            for key, val in value.items():
-                compressed_val, ext = self._prepare_sample(val)
-                if ext:
-                    key = f"{key}.{ext}"
-                new_dict[key] = compressed_val
+            for key, val in value.raw_items():
+                if value._key_fn(key) == key:
+                    compressed_val, ext = self._prepare_sample(val)
+                    if ext:
+                        key = f"{key}.{ext}"
+                    new_dict[key] = compressed_val
+                    continue
+                if key.endswith(".bin"):
+                    offset = val["offset"]
+                    length = val["length"]
+                    other = value.context
+                    # TODO: need also to check whether compression is compatible and fallback when it is not
+                    if not self.binary_threshold or length < self.binary_threshold:
+                        # fallback
+                        compressed_val, ext = self._prepare_sample(val)
+                        if ext:
+                            key = f"{key}.{ext}"
+                        new_dict[key] = compressed_val
+                        continue
+                    if not other.bin:
+                        other.bin = open(other.path.with_suffix(".bin"), "rb")
+                    other.bin.seek(offset)
+                    data = other.bin.read(length)
+                    if not self.bin:
+                        self.bin = open(self.path.with_suffix(".bin"), "wb")
+                    offset = self.bin.tell()
+                    self.bin.write(data)
+                    new_dict[key] = {"offset": offset, "length": length}
+                    continue
+                def declobber(obj):
+                    if isinstance(obj, LazyDict):
+                        return {k: declobber(v) for k, v in obj.raw_items()}
+                    elif isinstance(obj, dict):
+                        return {k: declobber(v) for k, v in obj.items()}
+                    elif isinstance(obj, list):
+                        return [declobber(item) for item in obj]
+                    elif isinstance(obj, set):
+                        return {declobber(item) for item in obj}
+                    elif isinstance(obj, tuple):
+                        return tuple(declobber(item) for item in obj)
+                    else:
+                        return obj
+                val = declobber(val)
+                new_dict[key] = val
             return new_dict, None
 
         elif isinstance(value, list):
@@ -569,6 +606,10 @@ class JinxLazyShardWriter:
             "num_samples": self.num_offsets,
             "shard_id": shard_id,
             "version": "1.0",
+            "binary_threshold": self.binary_threshold,
+            "compression": self.compression,
+            "index_compression": self.index_compression,
+            "compress_threshold": self.compress_threshold,
         }
         if shard_prev:
             header["shard_prev"] = shard_prev
