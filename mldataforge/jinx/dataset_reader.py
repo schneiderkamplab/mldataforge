@@ -1,7 +1,7 @@
 import bisect
 from pathlib import Path
 
-from .shard_reader import JinxLazyShardReader
+from .shard_reader import JinxShardReader
 
 __all__ = ["JinxDatasetReader"]
 
@@ -24,7 +24,7 @@ class JinxDatasetReader:
 
         total = 0
         for path in self.shard_paths:
-            shard = JinxLazyShardReader(path, split=split)
+            shard = JinxShardReader(path, split=split)
             self.shards.append(shard)
             self.lengths.append(len(shard))
             total += len(shard)
