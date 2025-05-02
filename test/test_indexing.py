@@ -129,7 +129,7 @@ def test_shuffling(fmt,seed, index, out_file, in_file, tmp_dir, scale_factor, js
     pytest.param("mds", "streaming", "def key(sample): return len(sample['input_ids'])", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
     ("mds", "streaming", "def key(sample): return sample['id']", None),
 ])
-def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request):
+def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request, jsonl_tools):
     if input_directory is None:
         num_indices = request.config.getoption("--indices")
         def id_iterator(it):
@@ -201,7 +201,7 @@ def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request):
             compress_ratio=1.0,
             binary_threshold=2**8,
         )
-        assert filecmp.cmp(sorted_file, resorted_file, shallow=False), f"Files {sorted_file} and {resorted_file} are different"
+        assert jsonl_tools.equal(sorted_file, resorted_file), f"Files {sorted_file} and {resorted_file} are different"
     elif fmt == "mds":
         join_mds(
             output_dir=sorted_file,
