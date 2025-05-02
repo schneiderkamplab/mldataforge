@@ -9,6 +9,21 @@ class LazyDict(MutableMapping):
         self._key_fn = key_fn
         self._store = {k: self._wrap_dicts(v) for k, v in data.items()}
 
+    def materialize(self):
+        return self._materialize(self)
+
+    def _materialize(self, obj):
+        if isinstance(obj, LazyDict):
+            return {k: self._materialize(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._materialize(item) for item in obj]
+        elif isinstance(obj, set):
+            return {self._materialize(item) for item in obj}
+        elif isinstance(obj, tuple):
+            return tuple(self._materialize(item) for item in obj)
+        else:
+            return obj
+
     def __getitem__(self, key):
         if key in self._store:
             return self._store[key]

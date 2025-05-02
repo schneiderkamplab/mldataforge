@@ -6,7 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from .lazy_dict import LazyDict
+from ..lazy_dict import LazyDict
 from ..compression import compress_data
 
 __all__ = ["JinxShardWriter", "JinxMMapShardWriter", "JinxLazyShardWriter"]
@@ -499,7 +499,16 @@ class JinxLazyShardWriter:
         return base64.a85encode(data).decode("utf-8")
 
     def _prepare_sample(self, value):
-        if isinstance(value, (dict, LazyDict)):
+        if isinstance(value, dict):
+            new_dict = {}
+            for key, val in value.items():
+                compressed_val, ext = self._prepare_sample(val)
+                if ext:
+                    key = f"{key}.{ext}"
+                new_dict[key] = compressed_val
+            return new_dict, None
+
+        elif isinstance(value, LazyDict):
             new_dict = {}
             for key, val in value.items():
                 compressed_val, ext = self._prepare_sample(val)

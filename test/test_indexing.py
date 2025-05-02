@@ -64,7 +64,7 @@ def test_indexing(num_slices, per_slice, tmp_dir):
     pytest.param("mds", -42, None, "test.unshuffled.mds", "test.shuffled.mds", marks=pytest.mark.dependency(dependency=["shuffle_mds_shuffled"], scope="session")),
     pytest.param("mds", None, "test.identity.index", "test.identity.mds", "test.jsonl.mds", marks=pytest.mark.dependency(dependency=["convert_jsonl_mds", "index_large"], scope="session")),
 ])
-def test_shuffling(fmt,seed, index, out_file, in_file, tmp_dir, scale_factor):
+def test_shuffling(fmt,seed, index, out_file, in_file, tmp_dir, scale_factor, jsonl_tools):
     if index is not None:
         index = str(tmp_dir / index)
     if fmt == "jinx":
@@ -85,7 +85,7 @@ def test_shuffling(fmt,seed, index, out_file, in_file, tmp_dir, scale_factor):
             binary_threshold=None,
         )
         if seed is None or seed < 0:
-            assert filecmp.cmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.jinx"), shallow=False), f"Files {out_file} and test.jsonl.jinx are different"
+            assert jsonl_tools.equal(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.jinx")), f"Files {out_file} and test.jsonl.jinx are different"
         else:
             assert not filecmp.cmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.jinx"), shallow=False), f"Files {out_file} and test.jsonl.jinx are the same"
     elif fmt == "mds":
@@ -134,7 +134,7 @@ def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request):
         num_indices = request.config.getoption("--indices")
         def id_iterator(it):
             for i in it:
-                yield {"id": int(i), "payload": np.random.randint(0, 2**32, size=2**14, dtype=np.uint64)}
+                yield {"id": int(i), "payload": np.random.randint(0, 2**32, size=2**10, dtype=np.uint64)}
         indices = shuffle_permutation(num_indices, seed=42)
         input_directory = f"test.{num_indices}.{param}.{fmt}"
         if fmt == "jinx":

@@ -7,7 +7,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from .lazy_dict import LazyDict
+from ..lazy_dict import LazyDict
 from ..compression import decompress_data, decompress_file
 from ..encoding import decode_a85_stream_to_file
 

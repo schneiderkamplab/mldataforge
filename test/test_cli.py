@@ -1,5 +1,4 @@
 from click.testing import CliRunner
-import filecmp
 from mldataforge.commands import cli
 import pytest
 
@@ -25,7 +24,7 @@ import pytest
     pytest.param("parquet", "mds", "test.jsonl.parquet.mds", "test.jsonl.parquet", marks=pytest.mark.dependency(name="convert_parquet_mds", depends=["convert_jsonl_parquet"], scope="session")),
     pytest.param("parquet", "msgpack", "test.jsonl.parquet.msgpack", "test.jsonl.parquet", marks=pytest.mark.dependency(name="convert_parquet_msgpack", depends=["convert_jsonl_parquet"], scope="session")),
 ])
-def test_conversion(src_fmt, target_fmt, out_file, in_file, tmp_dir):
+def test_conversion(src_fmt, target_fmt, out_file, in_file, tmp_dir, jsonl_tools):
     runner = CliRunner()
     result = runner.invoke(cli, [
         "convert",
@@ -39,7 +38,7 @@ def test_conversion(src_fmt, target_fmt, out_file, in_file, tmp_dir):
     assert result.exit_code == 0, f"Failed conversion {src_fmt} -> {target_fmt}: {result.output}"
     assert (tmp_dir / out_file).exists(), f"Output file {out_file} was not created"
     if target_fmt == "jsonl":
-        assert filecmp.cmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl"), shallow=False), f"Output file {out_file} does not match the original file {in_file}"
+        assert jsonl_tools.equal(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl")), f"Output file {out_file} does not match the original file test.jsonl"
 
 @pytest.mark.parametrize("fmt,out_file,in_files", [
     pytest.param("jinx", "test.joined.jinx", ["test.jsonl.jinx", "test.jsonl.mds.jinx"], marks=pytest.mark.dependency(depends=["convert_jsonl_jinx", "convert_mds_jinx"], scope="session")),

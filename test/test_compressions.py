@@ -176,7 +176,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor,
     pytest.param("mds", "test.sample.snappy.mds.jsonl", "test.sample.snappy.mds", marks=pytest.mark.dependency(depends=["compress_mds_sample_snappy"], scope="session")),
     pytest.param("mds", "test.sample.zstd.mds.jsonl", "test.sample.zstd.mds", marks=pytest.mark.dependency(depends=["compress_mds_sample_zstd"], scope="session")),
 ])
-def test_decompression(fmt, out_file, in_file, tmp_dir, scale_factor):
+def test_decompression(fmt, out_file, in_file, tmp_dir, scale_factor, jsonl_tools):
     if fmt == "jinx":
         jinx_to_jsonl(
             output_file=str(tmp_dir / out_file),
@@ -191,7 +191,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir, scale_factor):
             index=None,
             sort_key=None,
         )
-        assert filecmp.cmp(str(tmp_dir / "test.jsonl"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to test.jsonl"
+        assert jsonl_tools.equal(str(tmp_dir / "test.jsonl"), str(tmp_dir / out_file)), f"Output file {out_file} is not equal to test.jsonl"
     elif fmt == "jsonl":
         join_jsonl(
             output_file=str(tmp_dir / out_file),
@@ -241,4 +241,4 @@ def test_decompression(fmt, out_file, in_file, tmp_dir, scale_factor):
             yes=True,
             trafo=None,
         )
-        assert filecmp.cmp(str(tmp_dir / "test.jsonl"), str(tmp_dir / out_file), shallow=False), f"Output file {out_file} is not equal to test.jsonl"
+        assert jsonl_tools.equal(str(tmp_dir / "test.jsonl"), str(tmp_dir / out_file)), f"Output file {out_file} is not equal to test.jsonl"

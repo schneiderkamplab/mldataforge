@@ -3,6 +3,8 @@ from pathlib import Path
 import re
 from typing import Callable
 
+from .lazy_dict import LazyDict
+
 __all__ = ['Transformation', 'Transformations', 'flatten_json', 'get_transformations', 'identity', 'unflatten_json']
 
 class Transformation:
@@ -74,6 +76,8 @@ def flatten_json(obj, parent_key='', sep='$', escape_char='\\'):
                   .replace(sep, escape_char + sep)\
                   .replace('[', escape_char + '[')\
                   .replace(']', escape_char + ']')
+    if isinstance(obj, LazyDict):
+        obj = obj.materialize()
     items = []
     if isinstance(obj, dict):
         if not obj:
@@ -131,6 +135,8 @@ def unflatten_json(flat_dict, sep='$', escape_char='\\'):
                                   .replace(escape_char + ']', ']')
                                   .replace(escape_char*2, escape_char))
         return parsed
+    if isinstance(flat_dict, LazyDict):
+        flat_dict = flat_dict.materialize()
     check_flat_json(flat_dict)
     result = {}
     for compound_key, value in flat_dict.items():

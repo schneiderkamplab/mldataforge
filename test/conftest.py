@@ -1,11 +1,22 @@
 from collections import defaultdict
 from datasets import load_dataset
 from huggingface_hub import hf_hub_download
+import json
 import math
 from mldataforge import utils
 from pathlib import Path
 import pytest
 import shutil
+from types import SimpleNamespace
+
+@pytest.fixture
+def jsonl_tools():
+    def equal(file1_path, file2_path):
+        def load_jsonl(path):
+            with open(path, 'rt', encoding='utf-8') as f:
+                return [json.loads(line) for line in f if line.strip()]
+        return load_jsonl(file1_path) == load_jsonl(file2_path)
+    return SimpleNamespace(**locals())
 
 def pytest_collection_modifyitems(config, items):
     name_to_node = {}

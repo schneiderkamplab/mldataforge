@@ -20,6 +20,7 @@ import yaml
 from .compression import determine_compression, open_compression, pigz_compress
 from .indexing import IndexedDatasetView, reverse_permutation, shuffle_permutation, sort_permutation
 from .jinx import JinxDatasetReader, JinxDatasetWriter
+from .lazy_dict import LazyDict
 from .mds import MDS_READERS, MDSBulkDatasetReader, MDSRAMDatasetReader, MDSSampleWriter
 from .trafos import get_transformations
 
@@ -383,7 +384,8 @@ def save_jsonl(iterable, output_file, compression=None, compression_args={"proce
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
             f = open_compression(part_file, mode="wb", compression=compression, compression_args=compression_args)
-        item = _sort_nested(item)
+        if isinstance(item, LazyDict):
+            item = item.materialize()
         item = _ensure_json_encoding(item)
         f.write(f"{json.dumps(item)}\n".encode("utf-8"))
         if size_hint is not None and f.tell() >= size_hint:
@@ -410,6 +412,8 @@ def save_mds(it, output_dir, compression=None, compression_args={"processes": 64
             writer = MDSSampleWriter(out=part_dir, columns=columns, compression=compression, size_limit=shard_size)
             offset = 0
         prev = writer.new_shard_size
+        if isinstance(sample, LazyDict):
+            sample = sample.materialize()
         writer.write(sample)
         offset += (writer.new_shard_size - prev) if prev < writer.new_shard_size else writer.new_shard_size
         if size_hint is not None and offset >= size_hint:
@@ -449,7 +453,8 @@ def save_msgpack(iterable, output_file, compression=None, compression_args={"pro
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
             f = open_compression(part_file, mode="wb", compression=compression, compression_args=compression_args)
-        item = _sort_nested(item)
+        if isinstance(item, LazyDict):
+            item = item.materialize()
         packed = msgpack.packb(item, use_bin_type=True)
         f.write(packed)
         if size_hint is not None and f.tell() >= size_hint:
@@ -466,6 +471,9 @@ def save_parquet(it, output_file, compression=None, compression_args={"processes
     trafo = get_transformations(trafo)
     it = tqdm(it, desc="Writing to Parquet", unit="sample", disable=not CFG["progress"])
     for batch in _batch_iterable(trafo(it), batch_size):
+        if isinstance(batch[0], LazyDict):
+            for i in range(len(batch)):
+                batch[i] = batch[i].materialize()
         table = pa.Table.from_pylist(batch)
         if writer is None:
             part_file = output_file.format(part=part)
@@ -480,14 +488,6 @@ def save_parquet(it, output_file, compression=None, compression_args={"processes
             writer = None
     if writer is not None:
         writer.close()
-
-def _sort_nested(obj):
-    if isinstance(obj, dict):
-        return {k: _sort_nested(obj[k]) for k in sorted(obj)}
-    elif isinstance(obj, list):
-        return [_sort_nested(item) for item in obj]
-    else:
-        return obj
 
 def _streaming_jsonl(jsonl_files, compressions):
     for jsonl_file, compression in tqdm(zip(jsonl_files, compressions), desc="Loading JSONL files", unit="file", disable=not CFG["progress"]):
