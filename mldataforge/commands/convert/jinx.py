@@ -28,11 +28,10 @@ def jsonl(**kwargs):
 def jinx_to_jsonl(output_file, jinx_paths, compression, compression_args, overwrite, yes, trafo, split, shuffle, index, sort_key, lazy):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_jsonl(
-        load_jinx_paths(jinx_paths, split=split, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy),
+        load_jinx_paths(jinx_paths, split=split, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo),
         output_file,
         compression=compression,
         compression_args=compression_args,
-        trafo=trafo,
     )
 
 @jinx.command()
@@ -55,14 +54,13 @@ def mds(**kwargs):
 def jinx_to_mds(output_dir, jinx_paths, compression, compression_args, overwrite, yes, buf_size, shard_size, no_pigz, trafo, shuffle, index, sort_key, lazy):
     check_arguments(output_dir, overwrite, yes, jinx_paths)
     save_mds(
-        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy),
+        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo),
         output_dir,
         compression=compression,
         compression_args=compression_args,
         buf_size=buf_size,
         pigz=use_pigz(compression, no_pigz),
         shard_size=shard_size,
-        trafo=trafo,
     )
 
 @jinx.command()
@@ -82,11 +80,10 @@ def msgpack(**kwargs):
 def jinx_to_msgpack(output_file, jinx_paths, compression, compression_args, overwrite, yes, trafo, shuffle, index, sort_key, lazy):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_msgpack(
-        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy),
+        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo),
         output_file,
         compression=compression,
         compression_args=compression_args,
-        trafo=trafo,
     )
 
 @jinx.command()
@@ -107,10 +104,9 @@ def parquet(**kwargs):
 def jinx_to_parquet(output_file, jinx_paths, compression, compression_args, overwrite, yes, batch_size, trafo, shuffle, index, sort_key, lazy):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_parquet(
-        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy),
+        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo),
         output_file,
         compression=compression,
         compression_args=compression_args,
         batch_size=batch_size,
-        trafo=trafo,
     )

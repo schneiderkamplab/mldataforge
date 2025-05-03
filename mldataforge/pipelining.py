@@ -3,6 +3,7 @@ from pathlib import Path
 import itertools
 
 from .indexing import *
+from .trafos import *
 from .utils import *
 
 def run_pipeline(cfg, working_dir="."):
@@ -41,7 +42,8 @@ def run_step(defaults, step, named_iterators):
     ds = load_sources(defaults, step["sources"], named_iterators)
     ds = _maybe_reorder(ds, step)
     trafo = step.get("transformations", None)
-    save_sink(defaults, step.get("sink", None), ds, trafo, named_iterators)
+    ds = get_transformations(trafo)(ds)
+    save_sink(defaults, step.get("sink", None), ds, named_iterators)
 
 def _infer_format(source, item, exists):
     if (exists and item.is_dir()) or item.suffix.lower() == ".mds":
@@ -147,7 +149,7 @@ def _resolve_sink(defaults, sink):
         return {"fmt": fmt, "path": str(working_dir / sink)}
     raise click.BadArgumentUsage(f"Cannot resolve sink '{sink}'")
 
-def save_sink(defaults, sink, ds, trafo, named_iterators):
+def save_sink(defaults, sink, ds, named_iterators):
     if sink is None:
         for item in ds:
             pass
@@ -167,7 +169,6 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
             size_hint=sink.get("size_hint", defaults.get("size_hint", None)),
             overwrite=sink.get("overwrite", defaults.get("overwrite", False)),
             yes=sink.get("yes", defaults.get("yes", False)),
-            trafo=trafo,
             compress_threshold=sink.get("compress_threshold", defaults.get("compress_threshold", 2**6)),
             compress_ratio=sink.get("compress_ratio", defaults.get("compress_ratio", 1.0)),
             binary_threshold=sink.get("binary_threshold", defaults.get("binary_threshold", 2**8)),
@@ -182,7 +183,6 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
             size_hint=sink.get("size_hint", defaults.get("size_hint", None)),
             overwrite=sink.get("overwrite", defaults.get("overwrite", False)),
             yes=sink.get("yes", defaults.get("yes", False)),
-            trafo=trafo,
         )
     elif fmt == "mds":
         path = sink["path"]
@@ -197,7 +197,6 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
             size_hint=sink.get("size_hint", defaults.get("size_hint", None)),
             overwrite=sink.get("overwrite", defaults.get("overwrite", False)),
             yes=sink.get("yes", defaults.get("yes", False)),
-            trafo=trafo,
         )
     elif fmt == "msgpack":
         path = sink["path"]
@@ -209,7 +208,6 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
             size_hint=sink.get("size_hint", defaults.get("size_hint", None)),
             overwrite=sink.get("overwrite", defaults.get("overwrite", False)),
             yes=sink.get("yes", defaults.get("yes", False)),
-            trafo=trafo,
         )
     elif fmt == "parquet":
         path = sink["path"]
@@ -222,7 +220,6 @@ def save_sink(defaults, sink, ds, trafo, named_iterators):
             size_hint=sink.get("size_hint", defaults.get("size_hint", None)),
             overwrite=sink.get("overwrite", defaults.get("overwrite", False)),
             yes=sink.get("yes", defaults.get("yes", False)),
-            trafo=trafo,
         )
     else:
         raise click.BadArgumentUsage(f"Unknown sink format '{fmt}'")

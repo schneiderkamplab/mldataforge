@@ -31,12 +31,11 @@ def jinx(**kwargs):
 def join_jinx(output_file, jinx_paths, compression, compression_args, overwrite, yes, shard_size, trafo, shuffle, index, sort_key, lazy, compress_threshold, compress_ratio, binary_threshold):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_jinx(
-        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy),
+        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo),
         output_file,
         compression=compression,
         compression_args=compression_args,
         shard_size=shard_size,
-        trafo=trafo,
         compress_threshold=compress_threshold,
         compress_ratio=compress_ratio,
         binary_threshold=binary_threshold,

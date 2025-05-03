@@ -233,7 +233,7 @@ def load_index(input_file):
         indices = np.load(f)
     return indices
 
-def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=None, lazy=False):
+def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=None, lazy=False, trafo=None):
     if shuffle is not None:
         if index is not None:
             raise click.BadArgumentUsage("Cannot use index and shuffling simultaneously.")
@@ -260,6 +260,7 @@ def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=N
         if CFG["echo"]:
             click.echo(f"Created sort key with {len(indices)} indices")
         ds = IndexedDatasetView(ds, indices)
+    ds = get_transformations(trafo)(ds)
     return ds
 
 def load_jsonl_files(jsonl_files):
