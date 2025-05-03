@@ -13,21 +13,31 @@ from ..encoding import decode_a85_stream_to_file
 __all__ = ["JinxShardReader"]
 
 class JinxShardReader:
-    def __init__(self, path: str, split=None, lazy=True):
+    def __init__(self, path: str, split=None, lazy=True, mmap=False):
         self.path = Path(path)
         self.lazy = lazy
+        self.mmap = mmap
         self.file = self.path.open("rb")
+        if self.mmap:
+            self.mmap = mmap.mmap(self.file.fileno(), length=0, access=mmap.ACCESS_READ)
         self.bin_path = self.path.with_suffix(".bin")
         self.bin = None
         self._load_footer(split=split)
 
     def _load_footer(self, split=None):
-        self.file.seek(-64, os.SEEK_END)
-        last_part = self.file.read()
-        lines = last_part.strip().split(b"\n")
-        footer_offset = int(lines[-1].decode("utf-8"))
-        self.file.seek(footer_offset)
-        header_line = self.file.readline().decode("utf-8")
+        if self.mmap:
+            offset = self.mmap.size()-2
+            while self.mmap[offset] != ord("\n"):
+                offset -= 1
+            footer_offset = int(self.mmap[offset:].decode("utf-8"))
+            header_line = self.mmap[footer_offset:offset]
+        else:
+            self.file.seek(-64, os.SEEK_END)
+            last_part = self.file.read()
+            lines = last_part.strip().split(b"\n")
+            footer_offset = int(lines[-1].decode("utf-8"))
+            self.file.seek(footer_offset)
+            header_line = self.file.readline().decode("utf-8")
         self.header = orjson.loads(header_line)
         self.num_samples = self.header["num_samples"]
         self.ext_sep = self.header.get("ext_sep", ".")
@@ -66,11 +76,15 @@ class JinxShardReader:
         return self.num_samples
 
     def __getitem__(self, idx):
-        if not (0 <= idx < self.num_samples):
-            raise IndexError(f"Sample index out of range: {idx}")
-        offset = self.offsets[idx]
-        self.file.seek(offset)
-        line = self.file.readline().decode("utf-8")
+        if self.mmap:
+            begin, end = self.offsets[idx:idx+2]
+            line = self.mmap[begin:end]
+        else:
+            if not (0 <= idx < self.num_samples):
+                raise IndexError(f"Sample index out of range: {idx}")
+            offset = self.offsets[idx]
+            self.file.seek(offset)
+            line = self.file.readline().decode("utf-8")
         sample = orjson.loads(line)
         return self._load_sample(sample)
 
@@ -165,22 +179,33 @@ class JinxShardReader:
         return value
 
     def __iter__(self):
-        original_pos = self.file.tell()
-        try:
-            if self.offsets[0] > os.path.getsize(self.path):
-                raise ValueError(f"Offset {self.offsets[0]} is larger than file size {os.path.getsize(self.path)}")
-            self.file.seek(self.offsets[0])
-            for _ in range(self.num_samples):
-                line = self.file.readline()
-                if not line:
-                    break
+        if self.mmap:
+            for i in range(self.num_samples):
+                begin, end = self.offsets[i:i+2]
+                line = self.mmap[begin:end]
                 sample = orjson.loads(line)
                 yield self._load_sample(sample)
-        finally:
-            self.file.seek(original_pos)
+        else:
+            original_pos = self.file.tell()
+            try:
+                if self.offsets[0] > os.path.getsize(self.path):
+                    raise ValueError(f"Offset {self.offsets[0]} is larger than file size {os.path.getsize(self.path)}")
+                self.file.seek(self.offsets[0])
+                for _ in range(self.num_samples):
+                    line = self.file.readline()
+                    if not line:
+                        break
+                    sample = orjson.loads(line)
+                    yield self._load_sample(sample)
+            finally:
+                self.file.seek(original_pos)
 
     def close(self):
-        self.file.close()
+        if self.mmap
+            if hasattr(self, "mmap"):
+                self.mmap.close()
+        else:
+            self.file.close()
         if hasattr(self, "_index_tmp") and os.path.exists(self._index_tmp):
             os.remove(self._index_tmp)
         if hasattr(self, "offsets"):

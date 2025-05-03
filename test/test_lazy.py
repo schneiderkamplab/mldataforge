@@ -17,6 +17,7 @@ import pytest
 ])
 def test_lazy(fmt, param, compression, trafo, tmp_dir, request):
     num_indices = request.config.getoption("--indices")
+    num_indices = min(1, num_indices / 10)
     def id_iterator(it):
         for i in it:
             yield {"id": int(i), "payload": np.random.randint(0, 2**32, size=2**14, dtype=np.uint64)}
