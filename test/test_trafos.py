@@ -35,6 +35,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor, request):
             shuffle=None,
             index=None,
             sort_key=None,
+            lazy=False,
             compress_threshold=2**6,
             compress_ratio=1.0,
             binary_threshold=2**8,

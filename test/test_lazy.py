@@ -4,11 +4,13 @@ from mldataforge.utils import save_jinx
 import numpy as np
 import pytest
 
-@pytest.mark.parametrize("param,trafo", [
-    (None, ["def process(sample): return sample['id']"]),
-    ("snappy", ["def process(sample): return sample['id']"]),
+@pytest.mark.parametrize("lazy,param,trafo", [
+    (True, None, ["def process(sample): return sample['id']"]),
+    (True, "snappy", ["def process(sample): return sample['id']"]),
+    (False, None, ["def process(sample): return sample['id']"]),
+    (False, "snappy", ["def process(sample): return sample['id']"]),
 ])
-def test_lazy(param, trafo, tmp_dir, request):
+def test_lazy(lazy, param, trafo, tmp_dir, request):
     num_indices = request.config.getoption("--indices")
     def id_iterator(it):
         for i in it:
@@ -42,6 +44,7 @@ def test_lazy(param, trafo, tmp_dir, request):
         shuffle=None,
         index=None,
         sort_key=None,
+        lazy=lazy,
         compress_threshold=2**6,
         compress_ratio=1.0,
         binary_threshold=2**8,

@@ -73,7 +73,7 @@ class JinxShardReader:
         sample = orjson.loads(line)
         return self._load_sample(sample)
 
-    def _load_value(self, key, value):
+    def _lazy_load_value(self, key, value):
         if "." not in key:
             return key, value
         parts = key.split(".")
@@ -81,6 +81,15 @@ class JinxShardReader:
         decoded, extensions = self._load_bytes(key, value, extensions)
         decoded_value = self._unserialize(key, decoded, extensions, original_value=value)
         return decoded_value
+
+    def _load_value(self, key, value):
+        if "." not in key:
+            return key, value
+        parts = key.split(".")
+        base_key, extensions = parts[0], parts[1:]
+        decoded, extensions = self._load_bytes(key, value, extensions)
+        decoded_value = self._unserialize(key, decoded, extensions, original_value=value)
+        return base_key, decoded_value
 
     def _unserialize(self, key, decoded, extensions, original_value=None):
         for ext in reversed(extensions):
@@ -144,7 +153,7 @@ class JinxShardReader:
     def _load_sample(self, value):
         if isinstance(value, dict):
             if self.lazy:
-                return LazyDict(value, self._load_value, lambda k: k.split(".", 1)[0], self)
+                return LazyDict(value, self._lazy_load_value, lambda k: k.split(".", 1)[0], self)
             result = {}
             for k, v in value.items():
                 new_key, new_value = self._load_value(k, self._load_sample(v))

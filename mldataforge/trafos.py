@@ -47,11 +47,6 @@ class Transformation:
         if self._flushable:
             yield from self._flush()
 
-    def __len__(self):
-        if self._last_input_len is not None:
-            return self._last_input_len
-        raise TypeError("Length is not available for this transformation.")
-
 class Transformations:
     def __init__(self, codes: list[str | Callable], indices=None):
         self.pipeline = [Transformation(code) for code in codes]
@@ -62,13 +57,6 @@ class Transformations:
         for transform in self.pipeline:
             result = transform(result)
         return result
-
-    def __len__(self):
-        if self.indices is not None:
-            return len(self.indices)
-        elif hasattr(self.pipeline[0], '_last_input_len') and self.pipeline[0]._last_input_len is not None:
-            return self.pipeline[0]._last_input_len
-        raise TypeError("Transformations length is not available until __call__ is used on a sized input.")
 
 def flatten_json(obj, parent_key='', sep='$', escape_char='\\'):
     def escape(key):
@@ -99,20 +87,19 @@ def flatten_json(obj, parent_key='', sep='$', escape_char='\\'):
         items.append((parent_key, obj))
     return dict(items)
 
-def get_transformations(trafo: list[str | Callable], indices=None):
+def get_transformations(trafo: list[str | Callable]):
     codes = []
-    if not trafo:
-        return Transformations(codes=codes, indices=indices)
-    for t in trafo:
-        if Path(t).is_file():
-            codes.append(Path(t).read_text())
-        else:
-            try:
-                ast.parse(t)
-                codes.append(t)
-            except SyntaxError:
-                raise ValueError(f"Invalid transformation (neither an existing file nor valid Python code): {t}")
-    return Transformations(codes=codes, indices=indices)
+    if trafo:
+        for t in trafo:
+            if Path(t).is_file():
+                codes.append(Path(t).read_text())
+            else:
+                try:
+                    ast.parse(t)
+                    codes.append(t)
+                except SyntaxError:
+                    raise ValueError(f"Invalid transformation (neither an existing file nor valid Python code): {t}")
+    return Transformations(codes=codes)
 
 def identity(obj):
     return obj

@@ -8,6 +8,14 @@ class IndexedDatasetView:
         length = len(dataset)
         self.indices = [i for i in indices if 0 <= i < length]
 
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return self.dataset[self.indices[index]]
+        elif isinstance(index, slice):
+            return [self.dataset[i] for i in self.indices[index]]
+        else:
+            raise TypeError("Index must be an int or a slice")
+
     def __iter__(self):
         for idx in self.indices:
             yield self.dataset[idx]

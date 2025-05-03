@@ -13,6 +13,7 @@ __all__ = [
     "compression_option",
     "every_option",
     "index_option",
+    "lazy_option",
     "no_pigz_option",
     "number_option",
     "offset_option",
@@ -123,6 +124,16 @@ def index_option():
         default=None,
         type=click.Path(exists=True),
         help="Index file for loading the dataset.",
+    )
+
+def lazy_option():
+    """
+    Option for specifying whether to load the dataset lazily.
+    """
+    return click.option(
+        "--lazy",
+        is_flag=True,
+        help="Load the dataset lazily.",
     )
 
 def no_pigz_option():

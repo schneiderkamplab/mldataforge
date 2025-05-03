@@ -67,7 +67,10 @@ class JinxShardWriter:
             return value.item(), str(value.dtype)
 
         else:
-            return orjson.dumps(value), None
+            try:
+                return orjson.dumps(value), None
+            except Exception as e:
+                raise ValueError(f"Failed to serialize value {value}: {e}")
 
 
     def _handle_bytes(self, data, ext):
@@ -140,7 +143,7 @@ class JinxShardWriter:
                         or (self.compression is not None and length < self.compress_threshold)
                     ):
                         # fallback
-                        val = other._load_value(key, val)
+                        val = other._lazy_load_value(key, val)
                         key = value._key_fn(key)
                         compressed_val, ext = self._prepare_sample(val)
                         if ext:
