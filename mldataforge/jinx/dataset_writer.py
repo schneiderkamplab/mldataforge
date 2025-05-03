@@ -20,6 +20,7 @@ class JinxDatasetWriter:
         compress_threshold=128,
         compress_ratio=0.67,
         binary_threshold=None,
+        ext_sep=".",
     ):
         self.output_path = Path(output_path)
         self.shard_size = shard_size
@@ -30,6 +31,7 @@ class JinxDatasetWriter:
         self.compress_threshold = compress_threshold
         self.compress_ratio = compress_ratio
         self.binary_threshold = binary_threshold
+        self.ext_sep = ext_sep
         self.previous_shard_path = None
         self.shard_id = 0
         if self.shard_size is None:
@@ -51,6 +53,7 @@ class JinxDatasetWriter:
             compression=self.compression,
             index_compression=self.index_compression,
             binary_threshold=self.binary_threshold,
+            ext_sep=self.ext_sep,
         )
 
     def _new_shard(self):

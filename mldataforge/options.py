@@ -12,6 +12,7 @@ __all__ = [
     "compression_args_option",
     "compression_option",
     "every_option",
+    "ext_sep_option",
     "index_option",
     "lazy_option",
     "no_pigz_option",
@@ -113,6 +114,16 @@ def every_option(default=None):
         "--every",
         default=default,
         help="Process every N-th item (default: {default}).",
+    )
+
+def ext_sep_option(default="."):
+    """
+    Option for specifying the extension separator.
+    """
+    return click.option(
+        "--ext-sep",
+        default=default,
+        help=f"Extension separator (default: {default}).",
     )
 
 def index_option():

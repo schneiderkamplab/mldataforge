@@ -30,13 +30,14 @@ class JinxShardReader:
         header_line = self.file.readline().decode("utf-8")
         self.header = orjson.loads(header_line)
         self.num_samples = self.header["num_samples"]
+        self.ext_sep = self.header.get("ext_sep", ".")
         if split is not None and self.header.get("split") != split:
             self.num_samples = 0
         index_key = next((k for k in self.header if k.startswith("index.")), None)
         if index_key is None:
             raise ValueError("Missing index in JINX header.")
         index_data = self.header[index_key]
-        extensions = index_key.split(".")[1:]
+        extensions = index_key.split(self.ext_sep)[1:]
         self.offsets = self._mmap_index(index_data, extensions)
 
     def _mmap_index(self, data, extensions):
@@ -74,18 +75,18 @@ class JinxShardReader:
         return self._load_sample(sample)
 
     def _lazy_load_value(self, key, value):
-        if "." not in key:
+        if self.ext_sep not in key:
             return key, value
-        parts = key.split(".")
+        parts = key.split(self.ext_sep)
         _, extensions = parts[0], parts[1:]
         decoded, extensions = self._load_bytes(key, value, extensions)
         decoded_value = self._unserialize(key, decoded, extensions, original_value=value)
         return decoded_value
 
     def _load_value(self, key, value):
-        if "." not in key:
+        if self.ext_sep not in key:
             return key, value
-        parts = key.split(".")
+        parts = key.split(self.ext_sep)
         base_key, extensions = parts[0], parts[1:]
         decoded, extensions = self._load_bytes(key, value, extensions)
         decoded_value = self._unserialize(key, decoded, extensions, original_value=value)
@@ -153,7 +154,7 @@ class JinxShardReader:
     def _load_sample(self, value):
         if isinstance(value, dict):
             if self.lazy:
-                return LazyDict(value, self._lazy_load_value, lambda k: k.split(".", 1)[0], self)
+                return LazyDict(value, self._lazy_load_value, lambda k: k.split(self.ext_sep, 1)[0], self)
             result = {}
             for k, v in value.items():
                 new_key, new_value = self._load_value(k, self._load_sample(v))

@@ -20,6 +20,7 @@ class JinxShardWriter:
         compression=None,
         index_compression=None,
         binary_threshold=None,
+        ext_sep=".",
     ):
         self.path = Path(path)
         self.compress_threshold = compress_threshold
@@ -27,6 +28,7 @@ class JinxShardWriter:
         self.compression = compression
         self.index_compression = index_compression
         self.binary_threshold = binary_threshold
+        self.ext_sep = ext_sep
         self.file = self.path.open("wb")
         self.current_offset = 0
         tmp_file = tempfile.NamedTemporaryFile(delete=False)
@@ -98,7 +100,7 @@ class JinxShardWriter:
             offset = self.bin.tell()
             self.bin.write(data)
             extensions.append("bin")
-            return {"offset": offset, "length": len(data)}, ".".join(extensions)
+            return {"offset": offset, "length": len(data)}, self.ext_sep.join(extensions)
 
         if extensions == ["str"]:
             # Handle string separately to avoid double-encoding
@@ -106,9 +108,9 @@ class JinxShardWriter:
 
         # Encode bytes into baseXX for JSON embedding
         if isinstance(data, bytes):
-            return self._encode_bytes(data), ".".join(extensions)
+            return self._encode_bytes(data), self.ext_sep.join(extensions)
 
-        return data, ".".join(extensions) if extensions else None
+        return data, self.ext_sep.join(extensions) if extensions else None
 
 
     def _encode_bytes(self, data):
@@ -138,8 +140,10 @@ class JinxShardWriter:
                     length = val["length"]
                     other = value.context
                     if (
-                        (self.compression != other.header["compression"])
-                        or (not self.binary_threshold or length < self.binary_threshold)
+                        self.compression != other.header["compression"]
+                        or not self.binary_threshold
+                        or length < self.binary_threshold
+                        or self.compress_ratio != other.header["compress_ratio"]
                         or (self.compression is not None and length < self.compress_threshold)
                     ):
                         # fallback
@@ -219,6 +223,8 @@ class JinxShardWriter:
             "compression": self.compression,
             "index_compression": self.index_compression,
             "compress_threshold": self.compress_threshold,
+            "compress_ratio": self.compress_ratio,
+            "ext_sep": self.ext_sep,
         }
         if shard_prev:
             header["shard_prev"] = shard_prev

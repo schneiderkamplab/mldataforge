@@ -80,6 +80,7 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor,
             compress_threshold=2**6,
             compress_ratio=1.0,
             binary_threshold=2**8,
+            ext_sep=".",
         )
     elif fmt == "jsonl":
         join_jsonl(

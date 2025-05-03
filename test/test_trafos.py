@@ -39,6 +39,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor, request):
             compress_threshold=2**6,
             compress_ratio=1.0,
             binary_threshold=2**8,
+            ext_sep=".",
         )
         if "unflatten_json" in trafo or "idenitity" in trafo:
             assert filecmp.cmp(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.jinx"), shallow=False), f"Files {out_file} and test.jsonl.jinx are different"

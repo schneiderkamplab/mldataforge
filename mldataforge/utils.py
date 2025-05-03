@@ -354,7 +354,7 @@ def save_index(indices, output_file, overwrite=True, yes=True):
     with open(output_file, "wb") as f:
         np.save(f, indices)
 
-def save_jinx(iterable, output_file, compression=None, compression_args={"processes": 64}, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None, compress_ratio=0.67, compress_threshold=128, binary_threshold=None):
+def save_jinx(iterable, output_file, compression=None, compression_args={"processes": 64}, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None, compress_ratio=0.67, compress_threshold=128, binary_threshold=None, ext_sep="."):
     compression = determine_compression("jinx", output_file, compression)
     writer = None
     part = 0
@@ -363,7 +363,7 @@ def save_jinx(iterable, output_file, compression=None, compression_args={"proces
         if writer is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
-            writer = JinxDatasetWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, compress_threshold=compress_threshold, compress_ratio=compress_ratio, binary_threshold=binary_threshold)
+            writer = JinxDatasetWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, compress_threshold=compress_threshold, compress_ratio=compress_ratio, binary_threshold=binary_threshold, ext_sep=ext_sep)
             offset = 0
         prev = writer.tell()
         writer.write(sample)

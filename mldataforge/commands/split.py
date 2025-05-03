@@ -28,9 +28,10 @@ def split():
 @compress_threshold_option()
 @compress_ratio_option()
 @binary_threshold_option()
+@ext_sep_option()
 def jinx(*args, **kwargs):
     split_jinx(*args, **kwargs)
-def split_jinx(jinx_paths, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, shard_size, trafo, shuffle, index, sort_key, lazy, compress_threshold, compress_ratio, binary_threshold):
+def split_jinx(jinx_paths, prefix, output_dir, size_hint, compression, compression_args, overwrite, yes, shard_size, trafo, shuffle, index, sort_key, lazy, compress_threshold, compress_ratio, binary_threshold, ext_sep):
     save_jinx(
         load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo),
         output_file=f"{output_dir}/{prefix}{{part:04d}}.jinx",
@@ -43,6 +44,7 @@ def split_jinx(jinx_paths, prefix, output_dir, size_hint, compression, compressi
         compress_threshold=compress_threshold,
         compress_ratio=compress_ratio,
         binary_threshold=binary_threshold,
+        ext_sep=ext_sep,
     )
 
 @split.command()
