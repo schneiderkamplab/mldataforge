@@ -25,6 +25,20 @@ class LazyDict(MutableMapping):
         else:
             return obj
 
+    def eagerize(self, obj):
+        if isinstance(obj, LazyDict):
+            return {k: self.eagerize(v) for k, v in obj.raw_items()}
+        elif isinstance(obj, dict):
+            return {k: self.eagerize(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self.eagerize(item) for item in obj]
+        elif isinstance(obj, set):
+            return {self.eagerize(item) for item in obj}
+        elif isinstance(obj, tuple):
+            return tuple(self.eagerize(item) for item in obj)
+        else:
+            return obj
+
     def __getitem__(self, key):
         if key in self._store:
             return self._store[key]

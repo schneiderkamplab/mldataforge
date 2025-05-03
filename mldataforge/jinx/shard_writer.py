@@ -137,25 +137,8 @@ class JinxShardWriter:
                     if (
                         (self.compression != other.header["compression"])
                         or (not self.binary_threshold or length < self.binary_threshold)
+                        or (self.compression is not None and length < self.compress_threshold)
                     ):
-                        # fallback
-                        val = other._load_value(key, val)
-                        key = value._key_fn(key)
-                        compressed_val, ext = self._prepare_sample(val)
-                        if ext:
-                            key = f"{key}.{ext}"
-                        new_dict[key] = compressed_val
-                        continue
-                    if self.compression is not None and length < self.compress_threshold:
-                        # fallback
-                        val = other._load_value(key, val)
-                        key = value._key_fn(key)
-                        compressed_val, ext = self._prepare_sample(val)
-                        if ext:
-                            key = f"{key}.{ext}"
-                        new_dict[key] = compressed_val
-                        continue
-                    if not self.binary_threshold or length < self.binary_threshold:
                         # fallback
                         val = other._load_value(key, val)
                         key = value._key_fn(key)
@@ -174,21 +157,7 @@ class JinxShardWriter:
                     self.bin.write(data)
                     new_dict[key] = {"offset": offset, "length": length}
                     continue
-                def declobber(obj):
-                    if isinstance(obj, LazyDict):
-                        return {k: declobber(v) for k, v in obj.raw_items()}
-                    elif isinstance(obj, dict):
-                        return {k: declobber(v) for k, v in obj.items()}
-                    elif isinstance(obj, list):
-                        return [declobber(item) for item in obj]
-                    elif isinstance(obj, set):
-                        return {declobber(item) for item in obj}
-                    elif isinstance(obj, tuple):
-                        return tuple(declobber(item) for item in obj)
-                    else:
-                        return obj
-                val = declobber(val)
-                new_dict[key] = val
+                new_dict[key] = value.eagerize(val)
             return new_dict, None
 
         elif isinstance(value, list):
