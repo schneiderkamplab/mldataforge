@@ -73,7 +73,7 @@ class JinxShardReader:
         sample = orjson.loads(line)
         return self._load_sample(sample)
 
-    def _load_value(self, key, value, unserialized=True):
+    def _load_value(self, key, value):
         if "." not in key:
             return key, value
         parts = key.split(".")

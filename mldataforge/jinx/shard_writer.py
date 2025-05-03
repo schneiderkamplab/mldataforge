@@ -134,9 +134,31 @@ class JinxShardWriter:
                     offset = val["offset"]
                     length = val["length"]
                     other = value.context
-                    # TODO: need also to check whether compression is compatible and fallback when it is not
+                    if (
+                        (self.compression != other.header["compression"])
+                        or (not self.binary_threshold or length < self.binary_threshold)
+                    ):
+                        # fallback
+                        val = other._load_value(key, val)
+                        key = value._key_fn(key)
+                        compressed_val, ext = self._prepare_sample(val)
+                        if ext:
+                            key = f"{key}.{ext}"
+                        new_dict[key] = compressed_val
+                        continue
+                    if self.compression is not None and length < self.compress_threshold:
+                        # fallback
+                        val = other._load_value(key, val)
+                        key = value._key_fn(key)
+                        compressed_val, ext = self._prepare_sample(val)
+                        if ext:
+                            key = f"{key}.{ext}"
+                        new_dict[key] = compressed_val
+                        continue
                     if not self.binary_threshold or length < self.binary_threshold:
                         # fallback
+                        val = other._load_value(key, val)
+                        key = value._key_fn(key)
                         compressed_val, ext = self._prepare_sample(val)
                         if ext:
                             key = f"{key}.{ext}"
