@@ -32,6 +32,7 @@ def test_trafos(fmt, trafo, out_file, in_file, tmp_dir, scale_factor, request):
             yes=True,
             shard_size=None,
             trafo=trafo,
+            mmap=False,
             shuffle=None,
             index=None,
             sort_key=None,

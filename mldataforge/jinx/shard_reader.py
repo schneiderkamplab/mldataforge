@@ -201,7 +201,7 @@ class JinxShardReader:
                 self.file.seek(original_pos)
 
     def close(self):
-        if self.mmap
+        if self.mmap:
             if hasattr(self, "mmap"):
                 self.mmap.close()
         else:

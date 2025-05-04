@@ -15,6 +15,7 @@ __all__ = [
     "ext_sep_option",
     "index_option",
     "lazy_option",
+    "mmap_option",
     "no_pigz_option",
     "number_option",
     "offset_option",
@@ -145,6 +146,16 @@ def lazy_option():
         "--lazy",
         is_flag=True,
         help="Load the dataset lazily.",
+    )
+
+def mmap_option():
+    """
+    Option for specifying whether to use memory mapping.
+    """
+    return click.option(
+        "--mmap",
+        is_flag=True,
+        help="Use memory mapping for loading the dataset.",
     )
 
 def no_pigz_option():

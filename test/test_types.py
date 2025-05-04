@@ -39,6 +39,8 @@ def test_types(fmt, data, output_path, tmp_dir, request):
             index=None,
             sort_key=None,
             lazy=False,
+            trafo=None,
+            mmap=False,
         ):
             assert type(data) == type(sample["payload"])
             if isinstance(data, np.ndarray):

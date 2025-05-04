@@ -19,6 +19,7 @@ def join():
 @yes_option()
 @shard_size_option(default=None)
 @trafo_option()
+@mmap_option()
 @shuffle_option()
 @index_option()
 @sort_key_option()
@@ -29,10 +30,10 @@ def join():
 @ext_sep_option()
 def jinx(**kwargs):
     join_jinx(**kwargs)
-def join_jinx(output_file, jinx_paths, compression, compression_args, overwrite, yes, shard_size, trafo, shuffle, index, sort_key, lazy, compress_threshold, compress_ratio, binary_threshold, ext_sep):
+def join_jinx(output_file, jinx_paths, compression, compression_args, overwrite, yes, shard_size, trafo, mmap, shuffle, index, sort_key, lazy, compress_threshold, compress_ratio, binary_threshold, ext_sep):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_jinx(
-        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo),
+        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo, mmap=mmap),
         output_file,
         compression=compression,
         compression_args=compression_args,

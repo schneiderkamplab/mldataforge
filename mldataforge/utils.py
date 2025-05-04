@@ -233,7 +233,7 @@ def load_index(input_file):
         indices = np.load(f)
     return indices
 
-def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=None, lazy=False, trafo=None):
+def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=None, lazy=False, trafo=None, mmap=False):
     if shuffle is not None:
         if index is not None:
             raise click.BadArgumentUsage("Cannot use index and shuffling simultaneously.")
@@ -242,7 +242,7 @@ def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=N
     if index is not None:
         if sort_key is not None:
             raise click.BadArgumentUsage("Cannot use sort key and indexing simultaneously.")
-    ds = JinxDatasetReader(jinx_paths, split=split, lazy=lazy)
+    ds = JinxDatasetReader(jinx_paths, split=split, lazy=lazy, mmap=mmap)
     if shuffle is not None:
         indices = shuffle_permutation(len(ds), seed=abs(shuffle))
         if shuffle < 0:
