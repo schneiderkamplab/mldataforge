@@ -1,2 +1,2 @@
 #!/bin/bash
-pytest -vv -rs --durations=10 -x --tmp-path test/tmp --cache-clear $@
+pytest -vv -rs --durations=1000 -x --tmp-path test/tmp --cache-clear $@

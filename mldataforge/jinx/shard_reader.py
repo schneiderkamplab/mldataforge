@@ -1,6 +1,7 @@
 import base64
 import io
 import orjson
+import mmap as _mmap
 import numpy as np
 import os
 import tempfile
@@ -19,7 +20,7 @@ class JinxShardReader:
         self.mmap = mmap
         self.file = self.path.open("rb")
         if self.mmap:
-            self.mmap = mmap.mmap(self.file.fileno(), length=0, access=mmap.ACCESS_READ)
+            self.mmap = _mmap.mmap(self.file.fileno(), length=0, access=_mmap.ACCESS_READ)
         self.bin_path = self.path.with_suffix(".bin")
         self.bin = None
         self._load_footer(split=split)

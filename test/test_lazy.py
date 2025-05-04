@@ -3,6 +3,10 @@ from mldataforge.indexing import shuffle_permutation
 from mldataforge.utils import save_jinx, save_mds
 import numpy as np
 import pytest
+import re
+
+def clean(x):
+    return re.sub(r'[^A-Za-z0-9._-]', '', str(x))
 
 @pytest.mark.parametrize("fmt,param,compression,trafo", [
     ("jinx", {"lazy": True, "mmap": False}, None, ["def process(sample): return {'id': sample['id']}"]),
@@ -18,15 +22,14 @@ import pytest
     ("mds", "bulk", None, ["def process(sample): return {'id': sample['id']}"]),
     ("mds", "bulk", "sample::snappy", ["def process(sample): return {'id': sample['id']}"]),
     ("mds", "streaming", None, ["def process(sample): return {'id': sample['id']}"]),
-])
+], ids=clean)
 def test_lazy(fmt, param, compression, trafo, tmp_dir, request):
     num_indices = request.config.getoption("--indices")
-    num_indices = min(1, num_indices / 10)
     def id_iterator(it):
         for i in it:
             yield {"id": int(i), "payload": np.random.randint(0, 2**32, size=2**14, dtype=np.uint64)}
     indices = shuffle_permutation(num_indices, seed=42)
-    input_directory = tmp_dir / f"test.{num_indices}.{compression}.{param}.{fmt}"
+    input_directory = tmp_dir / f"test.{num_indices}.{compression}.{clean(param)}.{fmt}"
     if fmt == "jinx":
         save_jinx(
             id_iterator(indices),
@@ -48,14 +51,14 @@ def test_lazy(fmt, param, compression, trafo, tmp_dir, request):
             id_iterator(indices),
             str(input_directory),
             compression=compression,
-            shard_size=None,
+            shard_size=2**31,
             size_hint=None,
             overwrite=True,
             yes=True,
             trafo=None,
             pigz=False,
         )
-    projected_file = tmp_dir / f"test.{num_indices}.{compression}.{param}.projected.{fmt}"
+    projected_file = tmp_dir / f"test.{num_indices}.{compression}.{clean(param)}.projected.{fmt}"
     if fmt == "jinx":
         join_jinx(
             output_file=str(projected_file),
@@ -88,7 +91,7 @@ def test_lazy(fmt, param, compression, trafo, tmp_dir, request):
             no_pigz=True,
             overwrite=True,
             yes=True,
-            shard_size=None,
+            shard_size=2**31,
             trafo=trafo,
             shuffle=None,
             index=None,

@@ -35,6 +35,7 @@ class JinxShardWriter:
         self.offsets_tmp_path = tmp_file.name
         tmp_file.close()
         self.offsets_file = open(self.offsets_tmp_path, "wb")
+        self.offsets_file.write(b"\x00" * 8)
         self.num_offsets = 0
         self.bin = None
 
@@ -200,11 +201,11 @@ class JinxShardWriter:
     def write_sample(self, sample: dict):
         prepared_sample, _ = self._prepare_sample(sample)
         json_line = orjson.dumps(prepared_sample)
-        self.offsets_file.write(self.current_offset.to_bytes(8, byteorder='little'))
         self.file.write(json_line)
         self.file.write(b"\n")
         self.num_offsets += 1
         self.current_offset += len(json_line)+1
+        self.offsets_file.write(self.current_offset.to_bytes(8, byteorder='little'))
 
     def close(self, shard_id: int, shard_prev: str = None, shard_next: str = None,
               split: str = None, dataset_name: str = None, hash_value: str = None):

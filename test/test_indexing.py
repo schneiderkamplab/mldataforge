@@ -5,6 +5,10 @@ from mldataforge.indexing import shuffle_permutation
 from mldataforge.utils import save_jinx, save_mds
 import numpy as np
 import pytest
+import re
+
+def clean(x):
+    return re.sub(r'[^A-Za-z0-9._-]', '', str(x))
 
 @pytest.mark.parametrize("num_slices,per_slice", [
     (1, 1),
@@ -149,7 +153,7 @@ def test_shuffling(fmt,seed, index, out_file, in_file, tmp_dir, scale_factor, js
     pytest.param("mds", "streaming", "def key(sample): return sample['id']", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
     pytest.param("mds", "streaming", "def key(sample): return len(sample['input_ids'])", "test.tokenized.mds", marks=pytest.mark.dependency(depends=["trafos_test_tokenized_mds"], scope="session")),
     ("mds", "streaming", "def key(sample): return sample['id']", None),
-])
+], ids=clean)
 def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request, jsonl_tools):
     if input_directory is None:
         num_indices = request.config.getoption("--indices")
@@ -157,7 +161,7 @@ def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request, jsonl_
             for i in it:
                 yield {"id": int(i), "payload": np.random.randint(0, 2**32, size=2**10, dtype=np.uint64)}
         indices = shuffle_permutation(num_indices, seed=42)
-        input_directory = f"test.{num_indices}.{param}.{fmt}"
+        input_directory = f"test.{num_indices}.{clean(param)}.{fmt}"
         if fmt == "jinx":
             save_jinx(
                 id_iterator(indices),
@@ -204,7 +208,7 @@ def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request, jsonl_
             shuffle=None,
             index=None,
             sort_key=sort_key,
-            lazy=True,
+            lazy=param["lazy"],
             compress_threshold=2**6,
             compress_ratio=1.0,
             binary_threshold=2**8,
