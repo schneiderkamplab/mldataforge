@@ -175,6 +175,7 @@ def number_option(default=None):
     return click.option(
         "--number",
         default=default,
+        type=int,
         help=f"Number of items to process (default: all).",
     )
 
