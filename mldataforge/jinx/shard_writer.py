@@ -97,7 +97,7 @@ class JinxShardWriter:
         # Sidecar: store large binary data in .bin file
         if self.binary_threshold is not None and len(data) > self.binary_threshold:
             if not self.bin:
-                self.bin = open(self.path.with_suffix(".bin"), "wb")
+                self.bin = open(self.path.with_suffix(".binx"), "wb")
             offset = self.bin.tell()
             self.bin.write(data)
             extensions.append("bin")
@@ -156,11 +156,11 @@ class JinxShardWriter:
                         new_dict[key] = compressed_val
                         continue
                     if not other.bin:
-                        other.bin = open(other.path.with_suffix(".bin"), "rb")
+                        other.bin = open(other.path.with_suffix(".binx"), "rb")
                     other.bin.seek(offset)
                     data = other.bin.read(length)
                     if not self.bin:
-                        self.bin = open(self.path.with_suffix(".bin"), "wb")
+                        self.bin = open(self.path.with_suffix(".binx"), "wb")
                     offset = self.bin.tell()
                     self.bin.write(data)
                     new_dict[key] = {"offset": offset, "length": length}
@@ -183,7 +183,7 @@ class JinxShardWriter:
         data = array.tobytes()
         if self.binary_threshold is not None and len(data) > self.binary_threshold:
             if not self.bin:
-                self.bin = open(self.path.with_suffix(".bin"), "wb")
+                self.bin = open(self.path.with_suffix(".binx"), "wb")
             offset = self.bin.tell()
             self.bin.write(data)
             return {"offset": offset, "length": len(data)}, "npy.bin"

@@ -201,9 +201,9 @@ def determine_compression(fmt, file_path, compression="infer", no_pigz=False):
         if compression == "brotli":
             return "br"
         if compression == "sample::gzip":
-            return "gz"
+            return "sample::gz"
         if compression == "sample::brotli":
-            return "br"
+            return "sample::br"
         return compression
     if fmt == "parquet":
         return compression

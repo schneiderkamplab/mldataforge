@@ -21,7 +21,7 @@ class JinxShardReader:
         self.file = self.path.open("rb")
         if self.mmap:
             self.mmap = _mmap.mmap(self.file.fileno(), length=0, access=_mmap.ACCESS_READ)
-        self.bin_path = self.path.with_suffix(".bin")
+        self.bin_path = self.path.with_suffix(".binx")
         self.bin = None
         self._load_footer(split=split)
 
