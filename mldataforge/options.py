@@ -253,7 +253,7 @@ def shuffle_option():
         help="Shuffle the dataset by providing a random seed.",
     )
 
-def size_hint_option(default=2**26):
+def size_hint_option(default=None):
     """
     Option for specifying the size hint.
     """
