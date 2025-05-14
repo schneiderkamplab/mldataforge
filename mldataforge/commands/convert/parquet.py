@@ -17,7 +17,6 @@ def parquet():
 @compression_args_option()
 @overwrite_option()
 @yes_option()
-@size_hint_option()
 @shard_size_option(default=None)
 @trafo_option()
 @compress_threshold_option()
@@ -26,14 +25,13 @@ def parquet():
 @ext_sep_option()
 def jinx(**kwargs):
     parquet_to_jinx(**kwargs)
-def parquet_to_jinx(output_file, parquet_files, compression, compression_args, overwrite, yes, size_hint, shard_size, trafo, compress_threshold, compress_ratio, binary_threshold, ext_sep):
+def parquet_to_jinx(output_file, parquet_files, compression, compression_args, overwrite, yes, shard_size, trafo, compress_threshold, compress_ratio, binary_threshold, ext_sep):
     check_arguments(output_file, overwrite, yes, parquet_files)
     save_jinx(
         load_parquet_files(parquet_files),
         output_file,
         compression=compression,
         compression_args=compression_args,
-        size_hint=size_hint,
         shard_size=shard_size,
         trafo=trafo,
         compress_threshold=compress_threshold,

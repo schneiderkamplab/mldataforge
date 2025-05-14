@@ -20,7 +20,6 @@ def mds():
 @split_option()
 @batch_size_option()
 @reader_option()
-@size_hint_option()
 @shard_size_option(default=None)
 @trafo_option()
 @shuffle_option()
@@ -32,14 +31,13 @@ def mds():
 @ext_sep_option()
 def jinx(**kwargs):
     mds_to_jinx(**kwargs)
-def mds_to_jinx(output_file, mds_directories, compression, compression_args, overwrite, yes, split, batch_size, reader, size_hint, shard_size, trafo, shuffle, index, sort_key, compress_threshold, compress_ratio, binary_threshold, ext_sep):
+def mds_to_jinx(output_file, mds_directories, compression, compression_args, overwrite, yes, split, batch_size, reader, shard_size, trafo, shuffle, index, sort_key, compress_threshold, compress_ratio, binary_threshold, ext_sep):
     check_arguments(output_file, overwrite, yes, mds_directories)
     save_jinx(
         load_mds_directories(mds_directories, split=split, batch_size=batch_size, reader=reader, shuffle=shuffle, index=index, sort_key=sort_key),
         output_file,
         compression=compression,
         compression_args=compression_args,
-        size_hint=size_hint,
         shard_size=shard_size,
         trafo=trafo,
         compress_threshold=compress_threshold,

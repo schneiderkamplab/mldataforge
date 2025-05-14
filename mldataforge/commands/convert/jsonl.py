@@ -17,7 +17,6 @@ def jsonl():
 @compression_args_option()
 @overwrite_option()
 @yes_option()
-@size_hint_option()
 @shard_size_option(default=None)
 @trafo_option()
 @compress_threshold_option()
@@ -26,14 +25,13 @@ def jsonl():
 @ext_sep_option()
 def jinx(**kwargs):
     jsonl_to_jinx(**kwargs)
-def jsonl_to_jinx(output_file, jsonl_files, compression, compression_args, overwrite, yes, size_hint, shard_size, trafo, compress_threshold, compress_ratio, binary_threshold, ext_sep):
+def jsonl_to_jinx(output_file, jsonl_files, compression, compression_args, overwrite, yes, shard_size, trafo, compress_threshold, compress_ratio, binary_threshold, ext_sep):
     check_arguments(output_file, overwrite, yes, jsonl_files)
     save_jinx(
         load_jsonl_files(jsonl_files),
         output_file,
         compression=compression,
         compression_args=compression_args,
-        size_hint=size_hint,
         shard_size=shard_size,
         trafo=trafo,
         compress_threshold=compress_threshold,
