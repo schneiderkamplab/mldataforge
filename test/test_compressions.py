@@ -80,8 +80,10 @@ def test_compression(fmt, compression, out_file, in_file, tmp_dir, scale_factor,
             lazy=False,
             compress_threshold=2**6,
             compress_ratio=1.0,
+            encoding="a85",
             binary_threshold=2**8,
             ext_sep=".",
+            override_encoding=None,
         )
     elif fmt == "jsonl":
         join_jsonl(
@@ -195,6 +197,7 @@ def test_decompression(fmt, out_file, in_file, tmp_dir, scale_factor, jsonl_tool
             index=None,
             sort_key=None,
             lazy=False,
+            override_encoding=None,
         )
         assert jsonl_tools.equal(str(tmp_dir / "test.jsonl"), str(tmp_dir / out_file)), f"Output file {out_file} is not equal to test.jsonl"
     elif fmt == "jsonl":

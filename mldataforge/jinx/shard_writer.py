@@ -19,6 +19,7 @@ class JinxShardWriter:
         compress_ratio=1.0,
         compression=None,
         index_compression=None,
+        encoding="a85",
         binary_threshold=None,
         ext_sep=".",
     ):
@@ -27,6 +28,7 @@ class JinxShardWriter:
         self.compress_ratio = compress_ratio
         self.compression = compression
         self.index_compression = index_compression
+        self.encoding = encoding
         self.binary_threshold = binary_threshold
         self.ext_sep = ext_sep
         self.file = self.path.open("wb")
@@ -115,7 +117,15 @@ class JinxShardWriter:
 
 
     def _encode_bytes(self, data):
-        return base64.a85encode(data).decode("utf-8")
+        if self.encoding == "a85":
+            raw = base64.a85encode(data)
+        elif self.encoding == "b64":
+            raw = base64.b64encode(data)
+        elif self.encoding == "hex":
+            raw = data.hex().encode("utf-8")
+        else:
+            raise ValueError(f"Unsupported encoding: {self.encoding}")
+        return raw.decode("utf-8")
 
     def _prepare_sample(self, value):
         if isinstance(value, dict):
@@ -220,6 +230,7 @@ class JinxShardWriter:
             "num_samples": self.num_offsets,
             "shard_id": shard_id,
             "version": "1.0",
+            "encoding": self.encoding,
             "binary_threshold": self.binary_threshold,
             "compression": self.compression,
             "index_compression": self.index_compression,

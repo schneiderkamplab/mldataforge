@@ -11,6 +11,7 @@ __all__ = [
     "compress_ratio_option",
     "compression_args_option",
     "compression_option",
+    "encoding_option",
     "every_option",
     "ext_sep_option",
     "index_option",
@@ -20,6 +21,7 @@ __all__ = [
     "number_option",
     "offset_option",
     "output_dir_option",
+    "override_encoding_option",
     "overwrite_option",
     "prefix_option",
     "reader_option",
@@ -105,6 +107,17 @@ def compression_option(args):
         default=args["default"],
         type=click.Choice(args["choices"], case_sensitive=False),
         help=f'Compress the output file (default: {args["default"]}).',
+    )
+
+def encoding_option(default="a85"):
+    """
+    Option for specifying the encoding type.
+    """
+    return click.option(
+        "--encoding",
+        default=default,
+        type=click.Choice(["a85", "b64", "hex"], case_sensitive=False),
+        help=f"Encoding type (default: {default}).",
     )
 
 def every_option(default=None):
@@ -198,6 +211,16 @@ def output_dir_option(default="."):
         default=default,
         type=click.Path(exists=False),
         help="Output directory.",
+    )
+
+def override_encoding_option(default=None):
+    """
+    Option for specifying whether to override the encoding.
+    """
+    return click.option(
+        "--override-encoding",
+        default=default,
+        help="Override the encoding when loading.",
     )
 
 def overwrite_option():

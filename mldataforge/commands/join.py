@@ -26,20 +26,23 @@ def join():
 @lazy_option()
 @compress_threshold_option()
 @compress_ratio_option()
+@encoding_option()
 @binary_threshold_option()
 @ext_sep_option()
+@override_encoding_option()
 def jinx(**kwargs):
     join_jinx(**kwargs)
-def join_jinx(output_file, jinx_paths, compression, compression_args, overwrite, yes, shard_size, trafo, mmap, shuffle, index, sort_key, lazy, compress_threshold, compress_ratio, binary_threshold, ext_sep):
+def join_jinx(output_file, jinx_paths, compression, compression_args, overwrite, yes, shard_size, trafo, mmap, shuffle, index, sort_key, lazy, compress_threshold, compress_ratio, encoding, binary_threshold, ext_sep, override_encoding):
     check_arguments(output_file, overwrite, yes, jinx_paths)
     save_jinx(
-        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo, mmap=mmap),
+        load_jinx_paths(jinx_paths, shuffle=shuffle, index=index, sort_key=sort_key, lazy=lazy, trafo=trafo, mmap=mmap, encoding=override_encoding),
         output_file,
         compression=compression,
         compression_args=compression_args,
         shard_size=shard_size,
         compress_threshold=compress_threshold,
         compress_ratio=compress_ratio,
+        encoding=encoding,
         binary_threshold=binary_threshold,
         ext_sep=ext_sep,
     )

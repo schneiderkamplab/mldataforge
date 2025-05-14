@@ -14,10 +14,11 @@ from ..encoding import decode_a85_stream_to_file
 __all__ = ["JinxShardReader"]
 
 class JinxShardReader:
-    def __init__(self, path: str, split=None, lazy=True, mmap=False):
+    def __init__(self, path: str, split=None, lazy=True, mmap=False, encoding=None):
         self.path = Path(path)
         self.lazy = lazy
         self.mmap = mmap
+        self.encoding = encoding
         self.file = self.path.open("rb")
         if self.mmap:
             self.mmap = _mmap.mmap(self.file.fileno(), length=0, access=_mmap.ACCESS_READ)
@@ -42,6 +43,7 @@ class JinxShardReader:
         self.header = orjson.loads(header_line)
         self.num_samples = self.header["num_samples"]
         self.ext_sep = self.header.get("ext_sep", ".")
+        self.encoding = self.header.get("encoding", "a85" if self.encoding is None else self.encoding)
         if split is not None and self.header.get("split") != split:
             self.num_samples = 0
         index_key = next((k for k in self.header if k.startswith("index.")), None)
@@ -160,10 +162,23 @@ class JinxShardReader:
             value = self.bin.read(length)
             extensions.pop()
         elif isinstance(value, str):
-            try:
-                value = base64.a85decode(value.encode("ascii"), foldspaces=True)
-            except Exception as e:
-                raise ValueError(f"Failed to decode base85 for key '{key}': {e}")
+            if self.encoding == "a85":
+                try:
+                    value = base64.a85decode(value.encode("ascii"), foldspaces=True)
+                except Exception as e:
+                    raise ValueError(f"Failed to decode base85 for key '{key}': {e}")
+            elif self.encoding == "base64":
+                try:
+                    value = base64.b64decode(value.encode("ascii"))
+                except Exception as e:
+                    raise ValueError(f"Failed to decode base64 for key '{key}': {e}")
+            elif self.encoding == "hex":
+                try:
+                    value = bytes.fromhex(value)
+                except Exception as e:
+                    raise ValueError(f"Failed to decode hex for key '{key}': {e}")
+            else:
+                raise ValueError(f"Unsupported encoding '{self.encoding}' for key '{key}'")
         return value, extensions
 
     def _load_sample(self, value):

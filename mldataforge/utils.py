@@ -233,7 +233,7 @@ def load_index(input_file):
         indices = np.load(f)
     return indices
 
-def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=None, lazy=False, trafo=None, mmap=False):
+def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=None, lazy=False, trafo=None, mmap=False, encoding=None):
     if shuffle is not None:
         if index is not None:
             raise click.BadArgumentUsage("Cannot use index and shuffling simultaneously.")
@@ -242,7 +242,7 @@ def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=N
     if index is not None:
         if sort_key is not None:
             raise click.BadArgumentUsage("Cannot use sort key and indexing simultaneously.")
-    ds = JinxDatasetReader(jinx_paths, split=split, lazy=lazy, mmap=mmap)
+    ds = JinxDatasetReader(jinx_paths, split=split, lazy=lazy, mmap=mmap, encoding=encoding)
     if shuffle is not None:
         indices = shuffle_permutation(len(ds), seed=abs(shuffle))
         if shuffle < 0:
@@ -354,7 +354,7 @@ def save_index(indices, output_file, overwrite=True, yes=True):
     with open(output_file, "wb") as f:
         np.save(f, indices)
 
-def save_jinx(iterable, output_file, compression=None, compression_args={"processes": 64}, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None, compress_ratio=0.67, compress_threshold=128, binary_threshold=None, ext_sep="."):
+def save_jinx(iterable, output_file, compression=None, compression_args={"processes": 64}, shard_size=None, size_hint=None, overwrite=True, yes=True, trafo=None, compress_ratio=0.67, compress_threshold=128, encoding="a85", binary_threshold=None, ext_sep="."):
     compression = determine_compression("jinx", output_file, compression)
     writer = None
     part = 0
@@ -363,7 +363,7 @@ def save_jinx(iterable, output_file, compression=None, compression_args={"proces
         if writer is None:
             part_file = output_file.format(part=part)
             check_arguments(part_file, overwrite, yes)
-            writer = JinxDatasetWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, compress_threshold=compress_threshold, compress_ratio=compress_ratio, binary_threshold=binary_threshold, ext_sep=ext_sep)
+            writer = JinxDatasetWriter(part_file, shard_size=shard_size, compression=compression, index_compression=compression, compress_threshold=compress_threshold, compress_ratio=compress_ratio, encoding=encoding, binary_threshold=binary_threshold, ext_sep=ext_sep)
             offset = 0
         prev = writer.tell()
         writer.write(sample)

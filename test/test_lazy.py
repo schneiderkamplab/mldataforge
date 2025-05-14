@@ -76,8 +76,10 @@ def test_lazy(fmt, param, compression, trafo, tmp_dir, request):
             lazy=param["lazy"],
             compress_threshold=2**6,
             compress_ratio=1.0,
+            encoding="a85",
             binary_threshold=2**8,
             ext_sep=".",
+            override_encoding=None,
         )
     elif fmt == "mds":
         join_mds(

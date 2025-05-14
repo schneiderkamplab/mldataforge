@@ -21,11 +21,12 @@ def msgpack():
 @trafo_option()
 @compress_threshold_option()
 @compress_ratio_option()
+@encoding_option()
 @binary_threshold_option()
 @ext_sep_option()
 def jinx(**kwargs):
     msgpack_to_jinx(**kwargs)
-def msgpack_to_jinx(output_file, msgpack_files, compression, compression_args, overwrite, yes, shard_size, trafo, compress_threshold, compress_ratio, binary_threshold, ext_sep):
+def msgpack_to_jinx(output_file, msgpack_files, compression, compression_args, overwrite, yes, shard_size, trafo, compress_threshold, compress_ratio, encoding, binary_threshold, ext_sep):
     check_arguments(output_file, overwrite, yes, msgpack_files)
     save_jinx(
         load_msgpack_files(msgpack_files),
@@ -36,6 +37,7 @@ def msgpack_to_jinx(output_file, msgpack_files, compression, compression_args, o
         trafo=trafo,
         compress_threshold=compress_threshold,
         compress_ratio=compress_ratio,
+        encoding=encoding,
         binary_threshold=binary_threshold,
         ext_sep=ext_sep,
     )

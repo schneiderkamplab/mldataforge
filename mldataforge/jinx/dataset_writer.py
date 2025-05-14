@@ -19,6 +19,7 @@ class JinxDatasetWriter:
         index_compression="zst",
         compress_threshold=128,
         compress_ratio=0.67,
+        encoding="a85",
         binary_threshold=None,
         ext_sep=".",
     ):
@@ -30,6 +31,7 @@ class JinxDatasetWriter:
         self.index_compression = index_compression
         self.compress_threshold = compress_threshold
         self.compress_ratio = compress_ratio
+        self.encoding = encoding
         self.binary_threshold = binary_threshold
         self.ext_sep = ext_sep
         self.previous_shard_path = None
@@ -52,6 +54,7 @@ class JinxDatasetWriter:
             compress_ratio=self.compress_ratio,
             compression=self.compression,
             index_compression=self.index_compression,
+            encoding=self.encoding,
             binary_threshold=self.binary_threshold,
             ext_sep=self.ext_sep,
         )

@@ -171,6 +171,7 @@ def save_sink(defaults, sink, ds, named_iterators):
             yes=sink.get("yes", defaults.get("yes", False)),
             compress_threshold=sink.get("compress_threshold", defaults.get("compress_threshold", 2**6)),
             compress_ratio=sink.get("compress_ratio", defaults.get("compress_ratio", 1.0)),
+            encoding=sink.get("encoding", defaults.get("encoding", "a85")),
             binary_threshold=sink.get("binary_threshold", defaults.get("binary_threshold", 2**8)),
             ext_sep=sink.get("ext_sep", defaults.get("ext_sep", ".")),
         )

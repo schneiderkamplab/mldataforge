@@ -6,7 +6,7 @@ from .shard_reader import JinxShardReader
 __all__ = ["JinxDatasetReader"]
 
 class JinxDatasetReader:
-    def __init__(self, input_paths, split=None, lazy=False, mmap=False):
+    def __init__(self, input_paths, split=None, lazy=False, mmap=False, encoding=None):
         if isinstance(input_paths, (str, Path)):
             input_paths = [input_paths]
 
@@ -24,7 +24,7 @@ class JinxDatasetReader:
 
         total = 0
         for path in self.shard_paths:
-            shard = JinxShardReader(path, split=split, lazy=lazy, mmap=mmap)
+            shard = JinxShardReader(path, split=split, lazy=lazy, mmap=mmap, encoding=encoding)
             self.shards.append(shard)
             self.lengths.append(len(shard))
             total += len(shard)

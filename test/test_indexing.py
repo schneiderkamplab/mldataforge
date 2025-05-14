@@ -88,8 +88,10 @@ def test_shuffling(fmt,seed, index, out_file, in_file, tmp_dir, scale_factor, js
             lazy=True,
             compress_threshold=2**6,
             compress_ratio=1.0,
+            encoding="a85",
             binary_threshold=None,
             ext_sep=".",
+            override_encoding=None,
         )
         if seed is None or seed < 0:
             assert jsonl_tools.equal(str(tmp_dir / out_file), str(tmp_dir / "test.jsonl.jinx")), f"Files {out_file} and test.jsonl.jinx are different"
@@ -211,8 +213,10 @@ def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request, jsonl_
             lazy=param["lazy"],
             compress_threshold=2**6,
             compress_ratio=1.0,
+            encoding="a85",
             binary_threshold=2**8,
             ext_sep=".",
+            override_encoding=None,
         )
         join_jinx(
             output_file=resorted_file,
@@ -230,8 +234,10 @@ def test_sorting(fmt, param, sort_key, input_directory, tmp_dir, request, jsonl_
             lazy=param["lazy"],
             compress_threshold=2**6,
             compress_ratio=1.0,
+            encoding="a85",
             binary_threshold=2**8,
             ext_sep=".",
+            override_encoding=None,
         )
         assert jsonl_tools.equal(sorted_file, resorted_file), f"Files {sorted_file} and {resorted_file} are different"
     elif fmt == "mds":
