@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ..lazy_dict import LazyDict
 from ..compression import decompress_data, decompress_file
-from ..encoding import decode_a85_stream_to_file
+from ..encoding import decode_a85_stream_to_file, decode_b64_stream_to_file
 
 __all__ = ["JinxShardReader"]
 
@@ -59,7 +59,12 @@ class JinxShardReader:
             offset, length = location["offset"], location["length"]
             return np.memmap(self.bin_path, dtype=np.uint64, mode="r", offset=offset, shape=(length // 8))
         tmp_path = tempfile.NamedTemporaryFile(delete=False).name
-        decode_a85_stream_to_file(data, tmp_path)
+        if self.encoding == "a85":
+            decode_a85_stream_to_file(data, tmp_path)
+        elif self.encoding == "b64":
+            decode_b64_stream_to_file(data, tmp_path)
+        else:
+            raise ValueError(f"Unsupported encoding '{self.encoding}' for index data")
         for i, ext in reversed(list(enumerate(extensions))):
             if ext == "npy":
                 try:
@@ -167,7 +172,7 @@ class JinxShardReader:
                     value = base64.a85decode(value.encode("ascii"), foldspaces=True)
                 except Exception as e:
                     raise ValueError(f"Failed to decode base85 for key '{key}': {e}")
-            elif self.encoding == "base64":
+            elif self.encoding == "b64":
                 try:
                     value = base64.b64decode(value.encode("ascii"))
                 except Exception as e:
