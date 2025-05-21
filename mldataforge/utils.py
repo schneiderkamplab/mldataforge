@@ -263,11 +263,25 @@ def load_jinx_paths(jinx_paths, split=None, shuffle=None, index=None, sort_key=N
     ds = get_transformations(trafo)(ds)
     return ds
 
-def load_jsonl_files(jsonl_files):
+def load_jsonl_files(jsonl_files, shuffle=None, sort_key=None):
     compressions = [determine_compression("jsonl", jsonl_file) for jsonl_file in jsonl_files]
     if "br" in compressions or "snappy" in compressions:
         return _streaming_jsonl(jsonl_files, compressions)
-    return load_dataset("json", data_files=jsonl_files, split="train")
+    ds = load_dataset("json", data_files=jsonl_files, split="train")
+    if shuffle is not None:
+        if sort_key is not None:
+            raise click.BadArgumentUsage("Cannot use sort key and shuffling simultaneously.")
+        ds = ds.shuffle(seed=abs(shuffle))
+    if sort_key is not None:
+        if isinstance(sort_key, str):
+            global_context = {}
+            exec(sort_key, global_context)
+            if 'key' not in global_context or not callable(global_context['key']):
+                raise ValueError("code must define a callable named 'key'")
+            sort_key = global_context['key']
+        ds = ds.map(lambda x: {"__key__": sort_key(x)})
+        ds = ds.sort(column_names=["__key__"])
+    return ds
 
 def load_mds_directories(mds_directories, split='.', batch_size=2**16, reader="ram", shuffle=None, index=None, sort_key=None):
     if shuffle is not None:
@@ -334,8 +348,21 @@ def load_msgpack_files(msgpack_files):
     compressions = [determine_compression("msgpack", msgpack_file) for msgpack_file in msgpack_files]
     return _streaming_msgpack(msgpack_files, compressions)
 
-def load_parquet_files(parquet_files):
+def load_parquet_files(parquet_files, shuffle=None, sort_key=None):
     ds = load_dataset("parquet", data_files=parquet_files, split="train")
+    if shuffle is not None:
+        if sort_key is not None:
+            raise click.BadArgumentUsage("Cannot use sort key and shuffling simultaneously.")
+        ds = ds.shuffle(seed=abs(shuffle))
+    if sort_key is not None:
+        if isinstance(sort_key, str):
+            global_context = {}
+            exec(sort_key, global_context)
+            if 'key' not in global_context or not callable(global_context['key']):
+                raise ValueError("code must define a callable named 'key'")
+            sort_key = global_context['key']
+        ds = ds.map(lambda x: {"__key__": sort_key(x)})
+        ds = ds.sort(column_names=["__key__"])
     return ds
 
 def load_pipeline_config(pipeline_config):
