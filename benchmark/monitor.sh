@@ -2,6 +2,8 @@
 
 # Usage: ./monitor_disk_peak.sh benchmark_id
 MONITOR_DIR="data/$1"
+export HF_DATASETS_CACHE=$MONITOR_DIR
+rm -rfv $MONITOR_DIR
 CMD="python $1.py"
 shift
 CMD="$CMD $@"
