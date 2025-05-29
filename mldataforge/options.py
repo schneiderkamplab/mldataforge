@@ -23,6 +23,7 @@ __all__ = [
     "output_dir_option",
     "override_encoding_option",
     "overwrite_option",
+    "percentage_option",
     "prefix_option",
     "reader_option",
     "shard_size_option",
@@ -231,6 +232,17 @@ def overwrite_option():
         "--overwrite",
         is_flag=True,
         help="Overwrite existing path.",
+    )
+
+def percentage_option(default=None):
+    """
+    Option for specifying the percentage of items to process.
+    """
+    return click.option(
+        "--percentage",
+        default=default,
+        type=float,
+        help=f"Percentage of items to process (default: {default}).",
     )
 
 def prefix_option(default="part-"):
