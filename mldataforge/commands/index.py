@@ -95,6 +95,33 @@ def index_reverse(output_file, input_file, overwrite, yes, number, percentage, o
 @percentage_option()
 @offset_option()
 @every_option()
+@shuffle_option(default=42)
+def shuffle(**kwargs):
+    index_shuffle(**kwargs)
+def index_shuffle(output_file, mds_directories, overwrite, yes, split, batch_size, reader, number, percentage, offset, every, shuffle):
+    check_arguments(output_file, overwrite, yes)
+    ds = load_mds_directories(
+        mds_directories,
+        split=split,
+        batch_size=batch_size,
+        reader=reader,
+    )
+    indices = shuffle_permutation(len(ds), seed=shuffle)
+    indices = process_indices(indices, every=every, offset=offset, number=number, percentage=percentage)
+    save_index(indices, output_file)
+
+@index.command()
+@click.argument("output_file", type=click.Path(exists=False), required=True)
+@click.argument("mds_directories", type=click.Path(exists=True), nargs=-1)
+@overwrite_option()
+@yes_option()
+@split_option()
+@batch_size_option()
+@reader_option()
+@number_option()
+@percentage_option()
+@offset_option()
+@every_option()
 @sort_key_option()
 def sort(**kwargs):
     index_sort(**kwargs)

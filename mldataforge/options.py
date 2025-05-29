@@ -277,15 +277,15 @@ def shard_size_option(default=2**26):
         help=f"Shard size for the dataset (default: {default}).",
     )
 
-def shuffle_option():
+def shuffle_option(default=None):
     """
     Option for specifying whether to shuffle the dataset by providing a random seed.
     """
     return click.option(
         "--shuffle",
-        default=None,
+        default=default,
         type=int,
-        help="Shuffle the dataset by providing a random seed.",
+        help="Shuffle the dataset by providing a random seed (default: {default}).",
     )
 
 def size_hint_option(default=2**26):
