@@ -108,6 +108,7 @@ def index_sort(output_file, mds_directories, overwrite, yes, split, batch_size, 
 @index.command()
 @click.argument("output_file", type=click.Path(exists=False), required=True)
 @click.argument("input_file", type=click.Path(exists=True), required=True)
+@click.option("--remainder", type=click.Path(exists=False), default=None, help="File to save the remainder indices")
 @overwrite_option()
 @yes_option()
 @number_option()
@@ -115,8 +116,11 @@ def index_sort(output_file, mds_directories, overwrite, yes, split, batch_size, 
 @every_option()
 def slice(**kwargs):
     index_slice(**kwargs)
-def index_slice(output_file, input_file, overwrite, yes, number, offset, every):
+def index_slice(output_file, input_file, overwrite, yes, number, offset, every, remainder):
     check_arguments(output_file, overwrite, yes)
-    indices = load_index(input_file)
-    indices = process_indices(indices, every=every, offset=offset, number=number)
+    all_indices = load_index(input_file)
+    indices = process_indices(all_indices, every=every, offset=offset, number=number)
     save_index(indices, output_file)
+    if remainder is not None:
+        remainder_indices = compute_remainder(all_indices, indices)
+        save_index(remainder_indices, remainder)

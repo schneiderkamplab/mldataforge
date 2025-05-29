@@ -1,6 +1,6 @@
 import numpy as np
 
-__all__ = ['IndexedDatasetView', 'identity_permutation', 'process_indices', 'reverse_permutation', 'shuffle_permutation', 'sort_permutation']
+__all__ = ['IndexedDatasetView', 'compute_remainder', 'identity_permutation', 'process_indices', 'reverse_permutation', 'shuffle_permutation', 'sort_permutation']
 
 class IndexedDatasetView:
     def __init__(self, dataset, indices):
@@ -22,6 +22,10 @@ class IndexedDatasetView:
 
     def __len__(self):
         return len(self.indices)
+
+def compute_remainder(all_indices, indices):
+    indices_set = set(indices)
+    return all_indices[~np.isin(all_indices, indices_set)]
 
 def identity_permutation(n):
     return np.arange(n, dtype=np.uint64)
