@@ -24,8 +24,7 @@ class IndexedDatasetView:
         return len(self.indices)
 
 def compute_remainder(all_indices, indices):
-    indices_set = set(indices)
-    return all_indices[~np.isin(all_indices, indices_set)]
+    return all_indices[~np.isin(all_indices, indices)]
 
 def identity_permutation(n):
     return np.arange(n, dtype=np.uint64)
@@ -38,7 +37,7 @@ def process_indices(indices, every=None, offset=None, number=None, percentage=No
     if percentage is not None:
         if number is not None:
             raise ValueError("Cannot specify both 'number' and 'percentage'")
-        if not percentage >= 0 or percentage <= 1:
+        if percentage < 0 or percentage > 1:
             raise ValueError("Percentage must be between 0 and 1")
         number = int(len(indices) * percentage)
     if number is not None:

@@ -29,6 +29,7 @@ def test_indexing(num_slices, per_slice, tmp_dir):
         overwrite=True,
         yes=True,
         number=per_slice*num_slices,
+        percentage=None,
         offset=0,
         every=None,
     )
@@ -39,9 +40,11 @@ def test_indexing(num_slices, per_slice, tmp_dir):
         index_slice(
             output_file=str(tmp_dir / f"test.sliced{i}.index"),
             input_file=str(tmp_dir / "test.identity.index"),
+            remainder=None,
             overwrite=True,
             yes=True,
             number=per_slice,
+            percentage=None,
             offset=i * per_slice,
             every=None,
         )
@@ -54,11 +57,38 @@ def test_indexing(num_slices, per_slice, tmp_dir):
         overwrite=True,
         yes=True,
         number=per_slice*num_slices,
+        percentage=None,
         offset=0,
         every=None,
     )
     assert (tmp_dir / "test.joined.index").exists()
     assert filecmp.cmp(str(tmp_dir / "test.joined.index"), str(tmp_dir / "test.identity.index"), shallow=False), "Joined index does not match the original index!"
+
+    # Test percentage-wise slicing
+    index_slice(
+        output_file=str(tmp_dir / "test.percentage.index"),
+        input_file=str(tmp_dir / "test.identity.index"),
+        remainder=str(tmp_dir / "test.remainder.index"),
+        overwrite=True,
+        yes=True,
+        number=None,
+        percentage=0.9,
+        offset=0,
+        every=None,
+    )
+    assert (tmp_dir / "test.percentage.index").exists()
+    index_join(
+        output_file=str(tmp_dir / "test.joined.percentage.index"),
+        input_files=[str(tmp_dir / "test.percentage.index"), str(tmp_dir / "test.remainder.index")],
+        overwrite=True,
+        yes=True,
+        number=None,
+        percentage=None,
+        offset=0,
+        every=None,
+    )
+    assert (tmp_dir / "test.joined.percentage.index").exists()
+    assert filecmp.cmp(str(tmp_dir / "test.joined.percentage.index"), str(tmp_dir / "test.identity.index"), shallow=False), "Joined percentage index does not match the original index!"
 
 @pytest.mark.parametrize("fmt,seed,index,out_file,in_file", [
     pytest.param("jinx", 42, None, "test.shuffled.jinx", "test.jsonl.jinx", marks=pytest.mark.dependency(name="shuffle_jinx_shuffled", dependency=["convert_jsonl_jinx"], scope="session")),
