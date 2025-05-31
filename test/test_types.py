@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import torch
 
 from mldataforge.indexing import shuffle_permutation
 from mldataforge.utils import load_jinx_paths, save_jinx
@@ -7,7 +8,8 @@ from mldataforge.utils import load_jinx_paths, save_jinx
 @pytest.mark.parametrize("fmt,data,output_path", [
     pytest.param("jinx", b"Hello World!", "raw.jinx", marks=pytest.mark.dependency(depends=["convert_jsonl_jinx"], scope="session")),
     pytest.param("jinx", np.uint64(42), "np.jinx", marks=pytest.mark.dependency(depends=["convert_jsonl_jinx"], scope="session")),
-    pytest.param("jinx", np.ndarray([10,10], dtype=np.uint8), "npy.jinx", marks=pytest.mark.dependency(depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", np.zeros((10,10), dtype=np.uint8), "npy.jinx", marks=pytest.mark.dependency(depends=["convert_jsonl_jinx"], scope="session")),
+    pytest.param("jinx", torch.zeros((10, 10), dtype=torch.float32), "torch.jinx", marks=pytest.mark.dependency(depends=["convert_jsonl_jinx"], scope="session")),
 ])
 def test_types(fmt, data, output_path, tmp_dir, request):
     num_samples= request.config.getoption("--samples")
@@ -45,5 +47,7 @@ def test_types(fmt, data, output_path, tmp_dir, request):
             assert type(data) == type(sample["payload"])
             if isinstance(data, np.ndarray):
                 np.testing.assert_array_equal(data, sample["payload"])
+            elif isinstance(data, torch.Tensor):
+                assert torch.equal(data, sample["payload"])
             else:
                 assert data == sample["payload"]

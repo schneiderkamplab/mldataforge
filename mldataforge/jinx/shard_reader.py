@@ -4,8 +4,9 @@ import orjson
 import mmap as _mmap
 import numpy as np
 import os
-import tempfile
 from pathlib import Path
+import tempfile
+import torch
 
 from ..lazy_dict import LazyDict
 from ..compression import decompress_data, decompress_file
@@ -126,6 +127,11 @@ class JinxShardReader:
                     return np.load(io.BytesIO(decoded), allow_pickle=False)
                 except Exception as e:
                     raise ValueError(f"Failed to load .npy array for key '{key}': {e}")
+            elif ext == "pt":
+                try:
+                    return torch.load(io.BytesIO(decoded), weights_only=True)
+                except Exception as e:
+                    raise ValueError(f"Failed to load PyTorch tensor for key '{key}': {e}")                
             elif ext == "raw":
                 return decoded
             elif ext == "np":

@@ -3,8 +3,9 @@ import io
 import numpy as np
 import orjson
 import os
-import tempfile
 from pathlib import Path
+import tempfile
+import torch
 
 from ..lazy_dict import LazyDict
 from ..compression import compress_data
@@ -64,13 +65,14 @@ class JinxShardWriter:
             buf = io.BytesIO()
             np.save(buf, value, allow_pickle=False)
             return buf.getvalue(), "npy"
-
+        elif isinstance(value, torch.Tensor):
+            buf = io.BytesIO()
+            torch.save(value, buf)
+            return buf.getvalue(), "pt"
         elif isinstance(value, bytes):
             return value, "raw"
-
         elif isinstance(value, np.generic):
             return value.item(), str(value.dtype)
-
         else:
             try:
                 return orjson.dumps(value), None
