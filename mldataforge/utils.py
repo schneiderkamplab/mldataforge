@@ -30,6 +30,7 @@ __all__ = [
     "check_arguments",
     "confirm_overwrite",
     "count_mds",
+    "export_pyarrow",
     "get_max_index",
     "join_indices",
     "load_index",
@@ -152,6 +153,18 @@ def _ensure_json_key(key):
     if isinstance(key, bytes):
         return key.decode("latin1")
     return str(key)
+
+def export_pyarrow(dataset, output_path):
+    writer = None
+    for sample in tqdm(dataset, desc="Writing to PyArrow", unit="sample", disable=not CFG["progress"]):
+        if writer is None:
+            np_sample = {key: value for key, value in sample.items() if isinstance(value, np.ndarray)}
+            print(np_sample)
+            schema = pa.schema([(field_name, pa.from_numpy_dtype(value.dtype)) for field_name, value in np_sample.items()])
+            output_path = Path(output_path)
+            os.makedirs(output_path, exist_ok=True)
+            writer = pa.ipc.new_file(str(output_path / "fullshard.arrow"), schema=schema)
+        writer.write(pa.record_batch(np_sample, schema=schema))
 
 def _infer_mds_encoding(value):
     """Determine the MDS encoding for a given value."""

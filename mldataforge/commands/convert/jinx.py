@@ -4,7 +4,7 @@ from ...compression import *
 from ...options import *
 from ...utils import *
 
-__all__ = ["jsonl_to_mds", "jsonl_to_parquet"]
+__all__ = ["jinx_to_jsonl", "jinx_to_mds", "jinx_to_msgpack", "jinx_to_parquet"]
 
 @click.group()
 def jinx():

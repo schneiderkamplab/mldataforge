@@ -1,6 +1,7 @@
 import click
 
 from .convert import convert
+from .export import export
 from .index import index
 from .join import join
 from .pipeline import pipeline
@@ -13,6 +14,7 @@ def cli():
     pass
 
 cli.add_command(convert)
+cli.add_command(export)
 cli.add_command(index)
 cli.add_command(join)
 cli.add_command(pipeline)
