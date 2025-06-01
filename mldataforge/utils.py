@@ -158,13 +158,11 @@ def export_pyarrow(dataset, output_path):
     writer = None
     for sample in tqdm(dataset, desc="Writing to PyArrow", unit="sample", disable=not CFG["progress"]):
         if writer is None:
-            np_sample = {key: value for key, value in sample.items() if isinstance(value, np.ndarray)}
-            print(np_sample)
-            schema = pa.schema([(field_name, pa.from_numpy_dtype(value.dtype)) for field_name, value in np_sample.items()])
+            schema = pa.schema([(field_name, _infer_pyarrow_encoding(value)) for field_name, value in sample.items()])
             output_path = Path(output_path)
             os.makedirs(output_path, exist_ok=True)
             writer = pa.ipc.new_file(str(output_path / "fullshard.arrow"), schema=schema)
-        writer.write(pa.record_batch(np_sample, schema=schema))
+        writer.write(pa.record_batch(sample, schema=schema))
 
 def _infer_mds_encoding(value):
     """Determine the MDS encoding for a given value."""
@@ -219,6 +217,13 @@ def _infer_mds_encoding(value):
     if isinstance(value, (list, dict, bool, type(None))):
         return 'json'
     return 'pkl'
+
+
+def _infer_pyarrow_encoding(value):
+    """Determine the PyArrow field type for a given value."""
+    if isinstance(value, np.ndarray):
+        return pa.from_numpy_dtype(value.dtype)
+    raise TypeError(f"Unsupported type for PyArrow encoding: {type(value)}")
 
 def join_indices(input_files):
     loaded = []
