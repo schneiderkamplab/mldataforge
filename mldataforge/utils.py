@@ -158,11 +158,15 @@ def export_pyarrow(dataset, output_path):
     writer = None
     for sample in tqdm(dataset, desc="Writing to PyArrow", unit="sample", disable=not CFG["progress"]):
         if writer is None:
-            schema = pa.schema([(field_name, _infer_pyarrow_encoding(value)) for field_name, value in sample.items()])
+            names_and_types = [(field_name, _infer_pyarrow_encoding(value)) for field_name, value in sample.items()]
+            schema = pa.schema(names_and_types)
             output_path = Path(output_path)
             os.makedirs(output_path, exist_ok=True)
             writer = pa.ipc.new_file(str(output_path / "fullshard.arrow"), schema=schema)
-        writer.write(pa.record_batch(sample, schema=schema))
+        columnar_data = {key: value.tolist() for key, value in sample.items()}
+        writer.write(pa.record_batch(columnar_data, schema=schema))
+    if writer is not None:
+        writer.close()
 
 def _infer_mds_encoding(value):
     """Determine the MDS encoding for a given value."""
