@@ -25,26 +25,26 @@ class Transformation:
 
     def _normalize_outputs(self, result):
         if result is None:
-            return []
+            return [], False
         if isinstance(result, list):
-            return result
+            return result, True
         if isinstance(result, (tuple, set)):
-            return list(result)
-        return [result]
+            return list(result), True
+        return [result], True
 
     def _flush(self):
         if self._flushable:
             while True:
-                flushed = self._normalize_outputs(self.process(None))
+                flushed, _ = self._normalize_outputs(self.process(None))
                 if not flushed:
                     return
                 yield from flushed
 
     def __call__(self, iterable):
         for sample in iterable:
-            results = self._normalize_outputs(self.process(sample))
+            results, flushable = self._normalize_outputs(self.process(sample))
             yield from results
-            if not results:
+            if not results and flushable:
                 yield from self._flush()
         if self._flushable:
             yield from self._flush()
