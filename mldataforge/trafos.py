@@ -35,8 +35,8 @@ class Transformation:
     def _flush(self):
         if self._flushable:
             while True:
-                flushed, _ = self._normalize_outputs(self.process(None))
-                if not flushed:
+                flushed, flushable = self._normalize_outputs(self.process(None))
+                if not flushable:
                     return
                 yield from flushed
 
