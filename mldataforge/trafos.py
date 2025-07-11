@@ -26,7 +26,9 @@ class Transformation:
     def _normalize_outputs(self, result):
         if result is None:
             return []
-        if isinstance(result, (list, tuple, set)):
+        if isinstance(result, list):
+            return result
+        if isinstance(result, (tuple, set)):
             return list(result)
         return [result]
 
